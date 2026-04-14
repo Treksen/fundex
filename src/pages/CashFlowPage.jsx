@@ -1,3 +1,4 @@
+import AdminActions from '../components/AdminActions'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, RefreshCw, Zap } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -6,96 +7,123 @@ import { formatCurrency, formatDate } from '../lib/utils'
 import PageHeader from '../components/PageHeader'
 import ReserveFundPanel from '../components/ReserveFundPanel'
 import { Bar, Line } from 'react-chartjs-2'
+import toast from 'react-hot-toast'
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement,
   PointElement, LineElement, Title, Tooltip, Legend, Filler
 } from 'chart.js'
-import toast from 'react-hot-toast'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
+// Converts "2026-04" → "Apr 26"
+function formatMonthLabel(ym) {
+  if (!ym || ym === 'unknown') return ym
+  const [year, month] = ym.split('-')
+  const d = new Date(Number(year), Number(month) - 1, 1)
+  return d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })
+}
+
 export default function CashFlowPage() {
   const { isAdmin } = useAuth()
-  const [forecast, setForecast]     = useState(null)
+  const [forecast, setForecast]       = useState(null)
   const [projections, setProjections] = useState([])
-  const [monthly, setMonthly]       = useState([])
-  const [accounts, setAccounts]     = useState([])
-  const [capital, setCapital]       = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const [activeTab, setActiveTab]   = useState('overview')
+  const [monthly, setMonthly]         = useState([])
+  const [accounts, setAccounts]       = useState([])
+  const [capital, setCapital]         = useState([])
+  const [rawTxs, setRawTxs]           = useState([])
+  const [rawContribs, setRawContribs] = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [generating, setGenerating]   = useState(false)
+  const [activeTab, setActiveTab]     = useState('overview')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [projRes, txRes, accRes, capRes] = await Promise.all([
+    const [projRes, txRes, accRes, capRes, reserveRes] = await Promise.all([
       supabase.from('cash_flow_projections').select('*').order('projection_date'),
       supabase.from('transactions')
         .select('type,amount,status,transaction_date')
-        .eq('status','completed')
+        .eq('status', 'completed')
         .order('transaction_date', { ascending: true }),
       supabase.from('virtual_accounts').select('*').order('account_type'),
       supabase.from('capital_accounts')
         .select('*, profiles!capital_accounts_member_id_fkey(name,avatar_url)'),
+      supabase.from('reserve_contributions').select('direction,amount,source'),
     ])
+
     if (projRes.data) setProjections(projRes.data)
-    if (txRes.data) buildMonthly(txRes.data)
-    if (accRes.data) setAccounts(accRes.data)
-    if (capRes.data) setCapital(capRes.data)
+    if (capRes.data)  setCapital(capRes.data)
+    if (accRes.data)  setAccounts(accRes.data)
+
+    const txs     = txRes.data     || []
+    const contribs = reserveRes.data || []
+    setRawTxs(txs)
+    setRawContribs(contribs)
+
+    // Build monthly summary
+    const map = {}
+    txs.forEach(t => {
+      const key = t.transaction_date ? t.transaction_date.slice(0, 7) : 'unknown'
+      if (!map[key]) map[key] = { label: key, in: 0, out: 0, net: 0 }
+      if (t.type === 'deposit')    { map[key].in  += Number(t.amount); map[key].net += Number(t.amount) }
+      if (t.type === 'withdrawal') { map[key].out += Number(t.amount); map[key].net -= Number(t.amount) }
+      if (t.type === 'adjustment') { map[key].in  += Number(t.amount); map[key].net += Number(t.amount) }
+    })
+    const sortedKeys = Object.keys(map).sort().slice(-12)
+    let running = 0
+    setMonthly(sortedKeys.map(k => {
+      running += map[k].net
+      return { ...map[k], label: formatMonthLabel(k), balance: running }
+    }))
+
+    // Background sync — fire and forget safely
+    supabase.rpc('sync_virtual_account_balances').then(() => {}).catch(() => {})
+
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const buildMonthly = (txs) => {
-    const map = {}
-    txs.forEach(t => {
-      const key = formatDate(t.transaction_date, 'MMM yy')
-      if (!map[key]) map[key] = { in: 0, out: 0, net: 0 }
-      if (t.type === 'deposit') { map[key].in += Number(t.amount); map[key].net += Number(t.amount) }
-      else if (t.type === 'withdrawal') { map[key].out += Number(t.amount); map[key].net -= Number(t.amount) }
+  // Derive balances from raw source data — always accurate regardless of virtual_accounts state
+  const totalDeposits    = rawTxs.filter(t => t.type === 'deposit').reduce((s, t)    => s + Number(t.amount), 0)
+  const totalWithdrawals = rawTxs.filter(t => t.type === 'withdrawal').reduce((s, t) => s + Number(t.amount), 0)
+  const totalAdjustments = rawTxs.filter(t => t.type === 'adjustment').reduce((s, t) => s + Number(t.amount), 0)
+  const reserveFromPool  = rawContribs
+    .filter(r => r.source === 'group_pool')
+    .reduce((s, r) => s + (r.direction === 'allocate' ? Number(r.amount) : -Number(r.amount)), 0)
+  const currentBalance   = totalDeposits - totalWithdrawals + totalAdjustments - reserveFromPool
+  const invBalance       = accounts.find(a => a.account_code === 'INV_WALLET')?.balance || 0
+  const liquidBalance    = currentBalance - invBalance
+  const liquidPct        = currentBalance > 0 ? Math.round((liquidBalance / currentBalance) * 100) : 0
+
+  // Build accounts display list with computed values patched in
+  const displayAccounts = (() => {
+    const computedReserve = rawContribs.reduce((s, r) => s + (r.direction === 'allocate' ? Number(r.amount) : -Number(r.amount)), 0)
+    const base = accounts.length ? accounts : [
+      { id: 'gw', account_code: 'GROUP_WALLET',  account_name: 'Group Wallet',           account_type: 'group',      balance: 0, updated_at: new Date().toISOString() },
+      { id: 'rf', account_code: 'RESERVE_FUND',  account_name: 'Emergency Reserve Fund', account_type: 'reserve',    balance: 0, updated_at: new Date().toISOString() },
+      { id: 'iw', account_code: 'INV_WALLET',    account_name: 'Investment Wallet',       account_type: 'investment', balance: 0, updated_at: new Date().toISOString() },
+    ]
+    return base.map(a => {
+      if (a.account_code === 'GROUP_WALLET') return { ...a, balance: currentBalance }
+      if (a.account_code === 'RESERVE_FUND') return { ...a, balance: computedReserve }
+      return a
     })
-    const labels = Object.keys(map).slice(-12)
-    let running = 0
-    const rows = labels.map(l => {
-      running += map[l].net
-      return { label: l, in: map[l].in, out: map[l].out, net: map[l].net, balance: running }
-    })
-    setMonthly(rows)
-  }
+  })()
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   const runForecast = async () => {
     setGenerating(true)
     const { data, error } = await supabase.rpc('generate_cash_flow_forecast', { p_days: 90 })
     if (error) { toast.error(error.message) }
-    else {
-      setForecast(data)
-      toast.success('Forecast updated!')
-      fetchData()
-    }
+    else { setForecast(data); toast.success('Forecast updated!'); fetchData() }
     setGenerating(false)
   }
 
   // Get latest projection values
-  const proj30 = projections.find(p => {
-    const d = new Date(p.projection_date)
-    const now = new Date()
-    return Math.abs((d - now) / (1000*60*60*24) - 30) < 5
-  })
-  const proj60 = projections.find(p => {
-    const d = new Date(p.projection_date)
-    const now = new Date()
-    return Math.abs((d - now) / (1000*60*60*24) - 60) < 5
-  })
-  const proj90 = projections.find(p => {
-    const d = new Date(p.projection_date)
-    const now = new Date()
-    return Math.abs((d - now) / (1000*60*60*24) - 90) < 5
-  })
-
-  const currentBalance = accounts.find(a => a.account_code === 'GROUP_WALLET')?.balance || 0
-  const invBalance = accounts.find(a => a.account_code === 'INV_WALLET')?.balance || 0
-  const liquidBalance = currentBalance - invBalance
-  const liquidPct = currentBalance > 0 ? Math.round((liquidBalance / currentBalance) * 100) : 0
+  const proj30 = projections.find(p => Math.abs((new Date(p.projection_date) - new Date()) / (1000*60*60*24) - 30) < 5)
+  const proj60 = projections.find(p => Math.abs((new Date(p.projection_date) - new Date()) / (1000*60*60*24) - 60) < 5)
+  const proj90 = projections.find(p => Math.abs((new Date(p.projection_date) - new Date()) / (1000*60*60*24) - 90) < 5)
 
   const riskFlag = proj30
     ? (Number(proj30.projected_balance) < 0 ? 'critical'
@@ -226,7 +254,7 @@ export default function CashFlowPage() {
               <div style={{padding:'14px 16px 10px',borderBottom:'1px solid var(--border)'}}><span className="card-title">Monthly Breakdown</span></div>
               <div className="table-container" style={{border:'none',borderRadius:0}}>
                 <table>
-                  <thead><tr><th>Month</th><th style={{textAlign:'right'}}>Inflows</th><th style={{textAlign:'right'}}>Outflows</th><th style={{textAlign:'right'}}>Net</th><th style={{textAlign:'right'}}>Running Balance</th></tr></thead>
+                  <thead><tr><th>Month</th><th style={{textAlign:'right'}}>Inflows</th><th style={{textAlign:'right'}}>Outflows</th><th style={{textAlign:'right'}}>Net</th><th style={{textAlign:'right'}}>Running Balance</th>{isAdmin && <th style={{width:70}}>Actions</th>}</tr></thead>
                   <tbody>
                     {monthly.map(m => (
                       <tr key={m.label}>
@@ -235,6 +263,22 @@ export default function CashFlowPage() {
                         <td style={{textAlign:'right',fontFamily:'var(--font-mono)',color:'var(--accent-red)',fontSize:13}}>{formatCurrency(m.out)}</td>
                         <td style={{textAlign:'right',fontFamily:'var(--font-mono)',fontWeight:700,fontSize:13,color:m.net>=0?'var(--accent-emerald)':'var(--accent-red)'}}>{m.net>=0?'+':''}{formatCurrency(m.net)}</td>
                         <td style={{textAlign:'right',fontFamily:'var(--font-mono)',fontWeight:800,fontSize:13,color:'var(--navy-light)'}}>{formatCurrency(m.balance)}</td>
+                        {isAdmin && (
+                          <td>
+                            <AdminActions
+                              onDelete={async () => {
+                                if (!window.confirm(`Delete all cash flow projections for ${m.label}?`)) return
+                                const { error } = await supabase.from('cash_flow_projections')
+                                  .delete()
+                                  .gte('projection_date', m.label)
+                                  .lte('projection_date', m.label)
+                                if (error) toast.error(error.message)
+                                else { toast.success('Projection deleted'); fetchData() }
+                              }}
+                              size="xs"
+                            />
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -255,16 +299,37 @@ export default function CashFlowPage() {
             🏦 Virtual accounts provide internal fund separation — Group Wallet (liquid pool), Investment Wallet (deployed capital), and per-member accounts tracking individual equity.
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
-            {accounts.map(acc => {
+            {displayAccounts.map(acc => {
               const typeColor = { group:'var(--navy-light)', investment:'var(--olive)', member:'var(--accent-emerald)', reserve:'var(--accent-amber)' }[acc.account_type] || 'var(--text-primary)'
               return (
                 <div key={acc.id} className="card" style={{borderLeft:`3px solid ${typeColor}`}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-                    <div>
+                    <div style={{flex:1,minWidth:0}}>
                       <div style={{fontWeight:700,fontSize:14}}>{acc.account_name}</div>
                       <div style={{fontSize:11,color:'var(--text-muted)',fontFamily:'var(--font-mono)',marginTop:2}}>{acc.account_code}</div>
                     </div>
-                    <span className="badge badge-gray" style={{fontSize:10,textTransform:'capitalize'}}>{acc.account_type}</span>
+                    <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                      <span className="badge badge-gray" style={{fontSize:10,textTransform:'capitalize'}}>{acc.account_type}</span>
+                      {isAdmin && (
+                        <AdminActions
+                          onDelete={async () => {
+                            const isSys = ['GROUP_WALLET','INV_WALLET','RESERVE_FUND'].includes(acc.account_code)
+                            const msg = isSys
+                              ? `⚠️ Delete system account "${acc.account_name}"?\n\nThis will reset its balance to 0. It will be recreated on next sync. Only do this to fix corrupt data.`
+                              : `Delete virtual account "${acc.account_name}"? It will be recreated on next sync.`
+                            if (!window.confirm(msg)) return
+                            if (acc.id && !['gw','rf','iw'].includes(acc.id)) {
+                              const { error } = await supabase.from('virtual_accounts').delete().eq('id', acc.id)
+                              if (error) toast.error(error.message)
+                              else { toast.success('Account deleted — re-sync to restore'); fetchData() }
+                            } else {
+                              toast.error('Synthetic account — run migration to create real virtual_accounts first')
+                            }
+                          }}
+                          size="xs"
+                        />
+                      )}
+                    </div>
                   </div>
                   <div style={{fontSize:22,fontWeight:900,fontFamily:'var(--font-mono)',color:typeColor}}>
                     {formatCurrency(acc.balance)}
@@ -274,7 +339,7 @@ export default function CashFlowPage() {
                   </div>
                   <div style={{marginTop:10,height:4,background:'var(--bg-elevated)',borderRadius:99,overflow:'hidden'}}>
                     <div style={{height:'100%',background:typeColor,
-                      width:`${Math.min(100,Math.max(0, accounts.find(a=>a.account_code==='GROUP_WALLET')?.balance > 0 ? (Number(acc.balance)/Number(accounts.find(a=>a.account_code==='GROUP_WALLET')?.balance))*100 : 0))}%`,
+                      width:`${Math.min(100,Math.max(0, currentBalance > 0 ? (Number(acc.balance)/currentBalance)*100 : 0))}%`,
                       borderRadius:99}}/>
                   </div>
                 </div>
@@ -303,6 +368,7 @@ export default function CashFlowPage() {
                     <th style={{textAlign:'right'}}>Current Year Profit</th>
                     <th style={{textAlign:'right'}}>Carry Forward</th>
                     <th style={{textAlign:'right'}}>Total Capital</th>
+                    {isAdmin && <th style={{width:80}}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -314,6 +380,19 @@ export default function CashFlowPage() {
                       <td style={{textAlign:'right',fontFamily:'var(--font-mono)',fontSize:13,color:'var(--olive)'}}>{formatCurrency(c.current_year_profit)}</td>
                       <td style={{textAlign:'right',fontFamily:'var(--font-mono)',fontSize:13,color:'var(--text-muted)'}}>{formatCurrency(c.carry_forward)}</td>
                       <td style={{textAlign:'right',fontFamily:'var(--font-mono)',fontWeight:800,fontSize:14,color:'var(--navy-light)'}}>{formatCurrency(c.total_capital)}</td>
+                      {isAdmin && (
+                        <td>
+                          <AdminActions
+                            onDelete={async () => {
+                              if (!window.confirm(`Reset capital account for ${c.profiles?.name}? This deletes the record (it will be recreated on next sync).`)) return
+                              const { error } = await supabase.from('capital_accounts').delete().eq('id', c.id)
+                              if (error) toast.error(error.message)
+                              else { toast.success('Capital account reset'); fetchData() }
+                            }}
+                            size="xs"
+                          />
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

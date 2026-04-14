@@ -1,7 +1,8 @@
 import MemberAvatar from '../components/MemberAvatar'
 import PageHeader from '../components/PageHeader'
+import AdminActions from '../components/AdminActions'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { User, Bell, Lock, Save, Check, ExternalLink, Camera, UserPlus, Shield, Mail, ToggleLeft, ToggleRight } from 'lucide-react'
+import { User, Bell, Lock, Save, Check, ExternalLink, Camera, UserPlus, Shield, Mail, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { formatDateTime } from '../lib/utils'
@@ -15,6 +16,9 @@ export default function SettingsPage() {
   const defaultTab = searchParams.get('tab') === 'notifications' ? 'notifications' : 'profile'
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [notifications, setNotifications] = useState([])
+  const [allNotifications, setAllNotifications] = useState([])
+  const [notifView, setNotifView] = useState('mine')   // 'mine' | 'all'
+  const [filterMember, setFilterMember] = useState('') // user_id filter for all-view
   const [loadingNotif, setLoadingNotif] = useState(false)
   const [emailPrefs, setEmailPrefs] = useState({
     email_notifications_enabled: true,
@@ -123,19 +127,36 @@ export default function SettingsPage() {
   }, [profile])
 
   useEffect(() => {
-    if (activeTab === 'notifications') fetchNotifications()
-  }, [activeTab])
+    if (activeTab === 'notifications') {
+      fetchNotifications()
+      if (isAdmin) fetchAllNotifications()
+    }
+  }, [activeTab, isAdmin])
 
   const fetchNotifications = useCallback(async () => {
     setLoadingNotif(true)
     const { data } = await supabase
       .from('notifications')
-      .select('*, email_sent, email_sent_at')
+      .select('*, email_sent, email_sent_at, profiles!notifications_user_id_fkey(name, avatar_url)')
       .eq('user_id', profile.id)
       .order('created_at', { ascending: false })
     if (data) setNotifications(data)
     setLoadingNotif(false)
   }, [profile])
+
+  const fetchAllNotifications = useCallback(async () => {
+    setLoadingNotif(true)
+    const { data, error } = await supabase.rpc('admin_get_all_notifications')
+    if (error) {
+      console.error('fetchAllNotifications error:', error.message)
+      toast.error('Could not load all notifications: ' + error.message)
+    } else {
+      // RPC returns JSONB — data is already an array or a JSON string
+      const rows = Array.isArray(data) ? data : (typeof data === 'string' ? JSON.parse(data) : data) || []
+      setAllNotifications(rows)
+    }
+    setLoadingNotif(false)
+  }, [])
 
   const saveEmailPrefs = async () => {
     setSavingEmailPrefs(true)
@@ -167,6 +188,34 @@ export default function SettingsPage() {
   const markRead = async (id) => {
     await supabase.from('notifications').update({ is_read: true }).eq('id', id)
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
+  }
+
+  const deleteNotification = async (id) => {
+    if (!window.confirm('Delete this notification?')) return
+    const { error } = await supabase.rpc('admin_delete_notification', { p_notification_id: id })
+    if (error) toast.error('Delete failed: ' + error.message)
+    else { toast.success('Notification deleted'); fetchNotifications(); if (isAdmin) fetchAllNotifications() }
+  }
+
+  const deleteAnyNotification = async (id) => {
+    if (!window.confirm('Delete this notification?')) return
+    const { error } = await supabase.rpc('admin_delete_notification', { p_notification_id: id })
+    if (error) toast.error('Delete failed: ' + error.message)
+    else { toast.success('Notification deleted'); fetchAllNotifications() }
+  }
+
+  const clearMemberNotifications = async (userId, memberName) => {
+    if (!window.confirm(`Clear ALL notifications for ${memberName}? This cannot be undone.`)) return
+    const { error } = await supabase.rpc('admin_delete_all_notifications', { p_user_id: userId })
+    if (error) toast.error('Failed: ' + error.message)
+    else { toast.success(`Cleared all notifications for ${memberName}`); fetchAllNotifications() }
+  }
+
+  const clearAllNotifications = async () => {
+    if (!window.confirm(`Clear all ${notifications.length} notification${notifications.length !== 1 ? 's' : ''}? This cannot be undone.`)) return
+    const { error } = await supabase.rpc('admin_delete_all_notifications', { p_user_id: profile.id })
+    if (error) toast.error('Failed: ' + error.message)
+    else { toast.success('All cleared'); fetchNotifications() }
   }
 
   const saveProfile = async (e) => {
@@ -493,10 +542,111 @@ export default function SettingsPage() {
 
           {/* ── IN-APP NOTIFICATION LIST ── */}
           <div className="card">
-            <div className="flex justify-between items-center mb-4">
-              <h3 style={{ fontWeight: 700 }}>In-App Notifications {unread > 0 && <span className="badge badge-red" style={{ marginLeft: 8 }}>{unread} new</span>}</h3>
-              {unread > 0 && <button className="btn btn-secondary btn-sm" onClick={markAllRead}><Check size={13} /> Mark all read</button>}
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+              <h3 style={{ fontWeight: 700 }}>
+                In-App Notifications
+                {notifView === 'mine' && unread > 0 && <span className="badge badge-red" style={{ marginLeft: 8 }}>{unread} new</span>}
+                {notifView === 'all' && <span className="badge badge-blue" style={{ marginLeft: 8 }}>{allNotifications.length} total</span>}
+              </h3>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button className="btn btn-secondary btn-sm"
+                  onClick={() => { fetchNotifications(); if (isAdmin) fetchAllNotifications() }}
+                  disabled={loadingNotif}>
+                  <RefreshCw size={12} style={{ animation: loadingNotif ? 'spin 0.7s linear infinite' : 'none' }} /> Refresh
+                </button>
+                {notifView === 'mine' && unread > 0 && (
+                  <button className="btn btn-secondary btn-sm" onClick={markAllRead}><Check size={13} /> Mark all read</button>
+                )}
+                {isAdmin && notifView === 'mine' && notifications.length > 0 && (
+                  <button className="btn btn-danger btn-sm" onClick={clearAllNotifications}>🗑️ Clear Mine</button>
+                )}
+              </div>
             </div>
+
+            {/* Admin view toggle */}
+            {isAdmin && (
+              <div style={{ display: 'flex', gap: 4, marginBottom: 14, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+                {[['mine', '👤 My Notifications'], ['all', '👥 All Members']].map(([v, label]) => (
+                  <button key={v} onClick={() => { setNotifView(v); if (v === 'all') fetchAllNotifications() }} style={{
+                    padding: '7px 14px', border: 'none', background: 'none', cursor: 'pointer',
+                    fontFamily: 'var(--font-main)', fontSize: 13, fontWeight: 600,
+                    borderBottom: notifView === v ? '2px solid var(--olive)' : '2px solid transparent',
+                    color: notifView === v ? 'var(--olive)' : 'var(--text-muted)',
+                    position: 'relative', bottom: -1,
+                  }}>{label}</button>
+                ))}
+              </div>
+            )}
+
+            {/* ── ALL MEMBERS VIEW (admin only) ── */}
+            {isAdmin && notifView === 'all' && (
+              <>
+                {/* Member filter + clear all */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <select className="form-select" style={{ flex: 1 }} value={filterMember} onChange={e => setFilterMember(e.target.value)}>
+                    <option value="">All Members ({allNotifications.length})</option>
+                    {[...new Map(allNotifications.map(n => [n.user_id, n.member_name])).entries()].map(([uid, name]) => (
+                      <option key={uid} value={uid}>{name} ({allNotifications.filter(n => n.user_id === uid).length})</option>
+                    ))}
+                  </select>
+                  {filterMember && (
+                    <button className="btn btn-danger btn-sm" onClick={() => {
+                      const name = allNotifications.find(n => n.user_id === filterMember)?.member_name || 'member'
+                      clearMemberNotifications(filterMember, name)
+                    }}>
+                      🗑️ Clear {allNotifications.find(n => n.user_id === filterMember)?.member_name?.split(' ')[0]}'s
+                    </button>
+                  )}
+                </div>
+
+                {loadingNotif ? (
+                  <div className="flex justify-center" style={{ padding: 32 }}><div className="spinner" style={{ width: 24, height: 24 }} /></div>
+                ) : allNotifications.filter(n => !filterMember || n.user_id === filterMember).length === 0 ? (
+                  <div className="empty-state"><Bell size={32} style={{ opacity: 0.3 }} /><p>No notifications</p></div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {allNotifications
+                      .filter(n => !filterMember || n.user_id === filterMember)
+                      .map(n => (
+                        <div key={n.id} style={{
+                          padding: '10px 12px', borderRadius: 8,
+                          background: n.is_read ? 'var(--bg-elevated)' : 'rgba(122,140,58,0.05)',
+                          border: `1px solid ${n.is_read ? 'var(--border)' : 'rgba(122,140,58,0.2)'}`,
+                          display: 'flex', alignItems: 'flex-start', gap: 10,
+                        }}>
+                          {/* Member avatar */}
+                          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', flexShrink: 0 }}>
+                            {n.member_name?.charAt(0) || '?'}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, flexWrap: 'wrap' }}>
+                              <div>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginRight: 6 }}>
+                                  {n.member_name?.split(' ')[0]}
+                                </span>
+                                <span style={{ fontSize: 13, fontWeight: n.is_read ? 500 : 700 }}>{n.title}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                {!n.is_read && <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--olive)' }} />}
+                                <span onClick={e => e.stopPropagation()}>
+                                  <AdminActions onDelete={() => deleteAnyNotification(n.id)} size="xs" />
+                                </span>
+                              </div>
+                            </div>
+                            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{n.message}</p>
+                            <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{formatDateTime(n.created_at)}</p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── MY NOTIFICATIONS VIEW ── */}
+            {notifView === 'mine' && (
+              <>
           {loadingNotif ? (
             <div className="flex justify-center" style={{ padding: 32 }}><div className="spinner" style={{ width: 24, height: 24 }} /></div>
           ) : notifications.length === 0 ? (
@@ -504,23 +654,28 @@ export default function SettingsPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {notifications.map(n => {
-                const isApproval = n.type === 'approval' || n.action_url
-                const isClickable = !n.is_read || isApproval
-                const handleClick = async () => {
+                const isApproval = n.type === 'approval'
+                const hasLink = !!n.action_url
+
+                const handleCardClick = async () => {
+                  if (!n.is_read) await markRead(n.id)
+                }
+
+                const handleReviewClick = async (e) => {
+                  e.stopPropagation()
                   if (!n.is_read) await markRead(n.id)
                   if (n.action_url) navigate(n.action_url)
                 }
+
                 return (
                   <div
                     key={n.id}
-                    onClick={isClickable ? handleClick : undefined}
+                    onClick={handleCardClick}
                     style={{
-                      padding: 14,
-                      borderRadius: 10,
+                      padding: 14, borderRadius: 10, cursor: 'pointer',
                       background: n.is_read ? 'transparent' : isApproval ? 'rgba(230,144,10,0.06)' : 'rgba(122,140,58,0.05)',
                       border: `1px solid ${n.is_read ? 'var(--border)' : isApproval ? 'rgba(230,144,10,0.22)' : 'rgba(122,140,58,0.15)'}`,
-                      cursor: isClickable ? 'pointer' : 'default',
-                      transition: 'all 0.15s'
+                      transition: 'all 0.15s',
                     }}
                   >
                     <div className="flex items-start gap-3">
@@ -531,10 +686,20 @@ export default function SettingsPage() {
                             {n.title}
                           </p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                            {!n.is_read && <div style={{ width: 8, height: 8, borderRadius: '50%', background: isApproval ? 'var(--accent-amber)' : 'var(--olive)', flexShrink: 0 }} />}
-                            {isApproval && n.action_url && (
-                              <span style={{ fontSize: 11, color: 'var(--olive)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            {!n.is_read && (
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: isApproval ? 'var(--accent-amber)' : 'var(--olive)', flexShrink: 0 }} />
+                            )}
+                            {hasLink && (
+                              <button
+                                onClick={handleReviewClick}
+                                style={{ fontSize: 11, color: 'var(--olive)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--font-main)' }}
+                              >
                                 <ExternalLink size={11} /> Review
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <span onClick={e => e.stopPropagation()}>
+                                <AdminActions onDelete={() => deleteNotification(n.id)} size="xs" />
                               </span>
                             )}
                           </div>
@@ -555,9 +720,9 @@ export default function SettingsPage() {
               })}
             </div>
           )}
-
-          {/* email_sent badge on each notification */}
-        </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 

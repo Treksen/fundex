@@ -1,3 +1,4 @@
+import React from 'react'
 import MemberAvatar from '../components/MemberAvatar'
 import PageHeader from '../components/PageHeader'
 import Pagination from '../components/Pagination'
@@ -180,22 +181,28 @@ export default function TransactionsPage() {
   //  • Recalculates equity for all members after deletion
   const handleDelete = async (txId, txType, txAmount, memberName) => {
     const reason = window.prompt(
-      `Delete this ${txType} of ${formatCurrency(txAmount)} for ${memberName}?\n\nEnter a reason for deletion (required):`,
+      `Delete this ${txType} of ${formatCurrency(txAmount)} for ${memberName}?\n\nThis will recalculate all equity and reserve balances.\nEnter a reason (required):`,
       'Admin correction'
     )
     if (reason === null) return  // user cancelled
     if (!reason.trim()) { toast.error('A reason is required to delete a transaction.'); return }
 
     setDeletingId(txId)
+    // Log reason to audit first, then delete
+    await supabase.from('audit_logs').insert({
+      user_id: profile.id,
+      action: `Deleting transaction — reason: ${reason.trim()}`,
+      table_name: 'transactions',
+      record_id: txId,
+      change_type: 'delete',
+    })
     const { data, error } = await supabase.rpc('admin_delete_transaction', {
-      p_tx_id:          txId,
-      p_admin_user_id:  profile.id,
-      p_reason:         reason.trim(),
+      p_transaction_id: txId,
     })
     if (error || data?.success === false) {
       toast.error('Delete failed: ' + (error?.message || data?.error))
     } else {
-      toast.success('Transaction deleted and equity recalculated ✅')
+      toast.success('Transaction deleted — equity and reserve recalculated ✅')
       await fetchData()
     }
     setDeletingId(null)
@@ -370,8 +377,8 @@ export default function TransactionsPage() {
                     const isDeleting = deletingId === tx.id
 
                     return (
-                      <>
-                        <tr key={tx.id} id={`tx-row-${tx.id}`}
+                      <React.Fragment key={tx.id}>
+                        <tr id={`tx-row-${tx.id}`}
                           style={{
                             background: highlightId === tx.id ? 'rgba(90,138,30,0.05)' : needsMyVote ? 'rgba(230,144,10,0.04)' : undefined,
                             cursor: isWithdrawalPending ? 'pointer' : undefined,
@@ -484,7 +491,7 @@ export default function TransactionsPage() {
                             <td colSpan={8} style={{ padding: '0 16px 14px' }}><ApprovalPanel tx={tx} /></td>
                           </tr>
                         )}
-                      </>
+                      </React.Fragment>
                     )
                   })}
                 </tbody>

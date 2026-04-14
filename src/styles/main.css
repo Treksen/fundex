@@ -1324,3 +1324,23 @@ html, body { overflow-x: hidden; }
     padding: 7px 10px;
   }
 }
+
+/* ── AdminActions component mobile behaviour ────────────────── */
+/* On mobile, row-actions always wrap */
+@media (max-width: 600px) {
+  .row-actions { flex-wrap: wrap; gap: 6px; }
+  /* Inside mobile cards, stack the edit/delete vertically */
+  .mobile-card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .mobile-card-actions .btn-row-edit,
+  .mobile-card-actions .btn-row-delete {
+    flex: 1;
+    justify-content: center;
+    text-align: center;
+  }
+}

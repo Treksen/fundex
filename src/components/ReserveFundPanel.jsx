@@ -27,15 +27,65 @@ export default function ReserveFundPanel({ onUpdate }) {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [statusRes, histRes, policyRes] = await Promise.all([
+
+    // Trigger a background sync first so the view is fresh
+    try { await supabase.rpc('sync_virtual_account_balances') } catch(_) {}
+
+    const [statusRes, histRes, policyRes, txRes, contribRes] = await Promise.all([
       supabase.from('reserve_fund_status').select('*').single(),
       supabase.from('reserve_contributions')
         .select('*, profiles!reserve_contributions_created_by_fkey(name)')
         .order('created_at', { ascending: false })
         .limit(20),
       supabase.from('reserve_policy').select('*').order('updated_at', { ascending: false }).limit(1).single(),
+      supabase.from('transactions').select('type,amount,status').eq('status', 'completed'),
+      supabase.from('reserve_contributions').select('direction,amount,source'),
     ])
-    if (statusRes.data) setStatus(statusRes.data)
+
+    // Compute balances directly from source data (bypasses stale virtual_accounts view)
+    const txs = txRes.data || []
+    const contribs = contribRes.data || []
+    const policy = policyRes.data
+
+    const totalDeposits = txs.filter(t => t.type === 'deposit').reduce((s, t) => s + Number(t.amount), 0)
+    const totalWithdrawals = txs.filter(t => t.type === 'withdrawal').reduce((s, t) => s + Number(t.amount), 0)
+    const totalAdjustments = txs.filter(t => t.type === 'adjustment').reduce((s, t) => s + Number(t.amount), 0)
+    const reserveAllocatedFromPool = contribs
+      .filter(r => r.source === 'group_pool')
+      .reduce((s, r) => s + (r.direction === 'allocate' ? Number(r.amount) : -Number(r.amount)), 0)
+    const computedPool = totalDeposits - totalWithdrawals + totalAdjustments - reserveAllocatedFromPool
+    const computedReserve = contribs
+      .reduce((s, r) => s + (r.direction === 'allocate' ? Number(r.amount) : -Number(r.amount)), 0)
+
+    const targetPct = policy?.target_pct_of_pool || 10
+    const targetBalance = Math.round(computedPool * targetPct / 100 * 100) / 100
+    const vsTarget = computedReserve - targetBalance
+    const pctOfTarget = targetBalance > 0 ? Math.round((computedReserve / targetBalance) * 100 * 10) / 10 : 0
+
+    let healthStatus = 'unfunded'
+    if (computedReserve > 0) {
+      if (computedReserve < (policy?.min_balance || 0)) healthStatus = 'below_minimum'
+      else if (computedReserve < targetBalance * 0.5) healthStatus = 'low'
+      else if (computedReserve < targetBalance) healthStatus = 'building'
+      else healthStatus = 'healthy'
+    }
+
+    // Use computed status — fall back to view data if available
+    const computedStatus = {
+      current_balance: computedReserve,
+      group_pool_balance: computedPool,
+      target_balance: targetBalance,
+      target_pct_of_pool: targetPct,
+      vs_target: vsTarget,
+      pct_of_target: pctOfTarget,
+      health_status: healthStatus,
+      min_balance: policy?.min_balance || 0,
+    }
+
+    setStatus(statusRes.data && Number(statusRes.data.group_pool_balance) > 0
+      ? statusRes.data   // view is fresh — use it
+      : computedStatus   // view is stale — use computed
+    )
     if (histRes.data) setHistory(histRes.data)
     if (policyRes.data) setPolicy(policyRes.data)
     setLoading(false)
@@ -165,6 +215,7 @@ export default function ReserveFundPanel({ onUpdate }) {
               <thead>
                 <tr>
                   <th>Date</th><th>Direction</th><th>Source</th><th>Notes</th><th>By</th><th style={{ textAlign: 'right' }}>Amount</th>
+                  {isAdmin && <th style={{ width: 70 }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -182,6 +233,23 @@ export default function ReserveFundPanel({ onUpdate }) {
                     <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13, color: h.direction === 'allocate' ? 'var(--accent-emerald)' : 'var(--accent-red)' }}>
                       {h.direction === 'allocate' ? '+' : '-'}{formatCurrency(h.amount)}
                     </td>
+                    {isAdmin && (
+                      <td>
+                        <button
+                          className="btn-row-delete"
+                          style={{ padding: '3px 8px', fontSize: 10, display: 'flex', alignItems: 'center', gap: 3 }}
+                          onClick={async () => {
+                            if (!window.confirm('Delete this reserve history entry? The balance will be recalculated.')) return
+                            const { error } = await supabase.from('reserve_contributions').delete().eq('id', h.id)
+                            if (error) { toast.error(error.message); return }
+                            toast.success('Entry deleted')
+                            fetchData()
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

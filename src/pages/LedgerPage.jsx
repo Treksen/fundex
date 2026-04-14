@@ -1,12 +1,13 @@
+import AdminActions from '../components/AdminActions'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { BookOpen, ArrowUpRight, ArrowDownRight, RotateCcw, Filter, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrency, formatDateTime, getMemberColor } from '../lib/utils'
+import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import Pagination from '../components/Pagination'
 import MemberAvatar from '../components/MemberAvatar'
-import toast from 'react-hot-toast'
 
 const PAGE_SIZE = 25
 
@@ -101,7 +102,7 @@ export default function LedgerPage() {
         p_reversed_by_user: profile.id,
       })
       if (error) { toast.error('Reversal failed: ' + error.message); setLoading(false); return }
-      toast.success('Transaction reversed! Reversal statement #' + data)
+      toast.success(`Reversed ✅ — Statement #${data} created. Equity and reserve recalculated.`)
       setLoading(false)
       onClose()
       fetchStatement()
@@ -118,7 +119,7 @@ export default function LedgerPage() {
             <div style={{ background: 'rgba(220,53,69,0.07)', border: '1px solid rgba(220,53,69,0.2)', borderRadius: 8, padding: 12, marginBottom: 16 }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-red)' }}>⚠️ This will create a counter-transaction</p>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                A reversal entry will be recorded that offsets the original transaction. The original record is preserved for audit purposes.
+                A reversal entry will be recorded that offsets the original transaction. The original record is preserved for audit. Equity, reserve balance, and all linked skim contributions will be automatically recalculated.
               </p>
             </div>
             <div style={{ background: 'var(--bg-elevated)', borderRadius: 8, padding: 12, marginBottom: 16 }}>
@@ -272,16 +273,31 @@ export default function LedgerPage() {
                             </td>
                             {isAdmin && (
                               <td>
-                                {tx.status === 'completed' && !tx.is_reversal && !tx.reversed_by && (
-                                  <button
-                                    className="btn-row-delete"
-                                    onClick={() => setReversalModal(tx)}
-                                    title="Reverse transaction"
-                                    style={{ display: 'flex', alignItems: 'center', gap: 3 }}
-                                  >
-                                    <RotateCcw size={10} /> Reverse
-                                  </button>
-                                )}
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                  {tx.status === 'completed' && !tx.is_reversal && !tx.reversed_by && (
+                                    <button
+                                      className="btn-row-delete"
+                                      onClick={() => setReversalModal(tx)}
+                                      title="Reverse transaction"
+                                      style={{ display: 'flex', alignItems: 'center', gap: 3 }}
+                                    >
+                                      <RotateCcw size={10} /> Reverse
+                                    </button>
+                                  )}
+                                  <AdminActions
+                                    onDelete={async () => {
+                                      if (!window.confirm(`Delete transaction ${tx.statement_no || tx.id.slice(0,8)}?\n\nThis will:\n• Remove the transaction permanently\n• Remove any auto-skim reserve contributions linked to it\n• Recalculate equity and reserve balance for all members\n\nThis cannot be undone.`)) return
+                                      const { data, error } = await supabase.rpc('admin_delete_transaction', { p_transaction_id: tx.id })
+                                      if (error || data?.success === false) {
+                                        toast.error('Delete failed: ' + (error?.message || data?.error))
+                                      } else {
+                                        toast.success('Transaction deleted — equity and reserve recalculated ✅')
+                                        fetchStatement()
+                                      }
+                                    }}
+                                    size="xs"
+                                  />
+                                </div>
                               </td>
                             )}
                           </tr>
@@ -381,6 +397,7 @@ export default function LedgerPage() {
                       <th>Description</th>
                       <th style={{ textAlign: 'right' }}>Debit</th>
                       <th style={{ textAlign: 'right' }}>Credit</th>
+                      {isAdmin && <th style={{ width: 70 }}>Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -396,6 +413,19 @@ export default function LedgerPage() {
                         <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, color: Number(e.credit) > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>
                           {Number(e.credit) > 0 ? formatCurrency(e.credit) : '—'}
                         </td>
+                        {isAdmin && (
+                          <td>
+                            <AdminActions
+                              onDelete={async () => {
+                                if (!window.confirm('Delete this ledger entry?')) return
+                                const { error } = await supabase.from('ledger_entries').delete().eq('id', e.id)
+                                if (error) toast.error(error.message)
+                                else { toast.success('Entry deleted'); fetchLedger() }
+                              }}
+                              size="xs"
+                            />
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

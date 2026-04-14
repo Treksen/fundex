@@ -1,18 +1,23 @@
+import AdminActions from '../components/AdminActions'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Shield } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 import { formatDateTime } from '../lib/utils'
 import PageHeader from '../components/PageHeader'
 import Pagination from '../components/Pagination'
+import toast from 'react-hot-toast'
 
 const PAGE_SIZE = 50
 
 export default function AuditPage() {
+  const { isAdmin } = useAuth()
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [filterAction, setFilterAction] = useState('')
+  const [deletingId, setDeletingId] = useState(null)
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
@@ -46,16 +51,54 @@ export default function AuditPage() {
     return 'badge-gray'
   }
 
+  const deleteLog = async (id) => {
+    if (!window.confirm('Delete this audit log entry?')) return
+    setDeletingId(id)
+    const { data, error } = await supabase
+      .from('audit_logs').delete().eq('id', id).select('id')
+    if (error) {
+      toast.error('Delete failed: ' + error.message)
+    } else if (!data || data.length === 0) {
+      // RLS blocked direct delete — use SECURITY DEFINER RPC
+      const { error: rpcErr } = await supabase.rpc('admin_delete_audit_log', { p_log_id: id })
+      if (rpcErr) toast.error('Delete failed: ' + rpcErr.message)
+      else { toast.success('Log deleted'); fetchLogs() }
+    } else {
+      toast.success('Log deleted')
+      fetchLogs()
+    }
+    setDeletingId(null)
+  }
+
+  const clearAllLogs = async () => {
+    if (!window.confirm('⚠️ Clear ALL audit logs? This cannot be undone.')) return
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000')
+      .select('id')
+    if (error) {
+      toast.error('Failed: ' + error.message)
+    } else if (!data || data.length === 0) {
+      // RLS blocked — use RPC
+      const { error: rpcErr } = await supabase.rpc('admin_clear_audit_logs')
+      if (rpcErr) toast.error('Failed: ' + rpcErr.message)
+      else { toast.success('All logs cleared'); fetchLogs() }
+    } else {
+      toast.success(`Cleared ${data.length} log${data.length !== 1 ? 's' : ''}`)
+      fetchLogs()
+    }
+  }
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
   return (
     <div>
-      <PageHeader
-        title="Audit Log"
-        subtitle={`${totalCount} total system actions recorded`}
-        onRefresh={fetchLogs}
-        loading={loading}
-      />
+      <PageHeader title="Audit Log" subtitle={`${totalCount} total system actions recorded`} onRefresh={fetchLogs} loading={loading}>
+        {isAdmin && totalCount > 0 && (
+          <button className="btn btn-danger btn-sm" onClick={clearAllLogs}>🗑️ Clear All</button>
+        )}
+      </PageHeader>
 
       {/* Filter bar */}
       <div className="card mb-4">
@@ -102,6 +145,7 @@ export default function AuditPage() {
                     <th>Action</th>
                     <th>Table</th>
                     <th>Record ID</th>
+                    {isAdmin && <th style={{ width: 80 }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -112,6 +156,11 @@ export default function AuditPage() {
                       <td style={{ fontSize: 13, color: getActionColor(log.action) }}>{log.action}</td>
                       <td><span className="badge badge-gray">{log.table_name || '—'}</span></td>
                       <td className="text-xs text-muted text-mono">{log.record_id ? log.record_id.substring(0, 8) + '…' : '—'}</td>
+                      {isAdmin && (
+                        <td>
+                          <AdminActions onDelete={() => deleteLog(log.id)} deleting={deletingId === log.id} size="xs" />
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -121,7 +170,7 @@ export default function AuditPage() {
             {/* Mobile audit cards */}
             <div>
               {logs.map(log => (
-                <div key={`mob-${log.id}`} className="mobile-audit-card">
+                <div key={`mob-${log.id}`} className="mobile-audit-card" style={{ opacity: deletingId === log.id ? 0.4 : 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', flexShrink: 0 }}>
@@ -132,7 +181,10 @@ export default function AuditPage() {
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDateTime(log.created_at)}</div>
                       </div>
                     </div>
-                    <span className={`badge ${getActionBadgeClass(log.action)}`} style={{ fontSize: 10, flexShrink: 0 }}>{log.action}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className={`badge ${getActionBadgeClass(log.action)}`} style={{ fontSize: 10, flexShrink: 0 }}>{log.action}</span>
+                      {isAdmin && <AdminActions onDelete={() => deleteLog(log.id)} deleting={deletingId === log.id} size="xs" />}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
                     {log.table_name && <span className="badge badge-gray" style={{ fontSize: 10 }}>{log.table_name}</span>}

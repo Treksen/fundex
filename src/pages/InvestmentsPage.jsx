@@ -1,6 +1,7 @@
 import MemberAvatar from '../components/MemberAvatar'
 import PageHeader from '../components/PageHeader'
 import DecisionPanel from '../components/DecisionPanel'
+import AdminActions from '../components/AdminActions'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Plus, X, TrendingUp, TrendingDown, BarChart2,
@@ -407,6 +408,7 @@ export default function InvestmentsPage() {
                     <th>Dividend</th>
                     <th>Date</th>
                     <th>Reinvested?</th>
+                    {isAdmin && <th style={{ width: 70 }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -418,11 +420,24 @@ export default function InvestmentsPage() {
                           {d.profiles?.name?.split(' ')[0]}
                         </div>
                       </td>
-                      <td className="text-sm">{d.investments?.title}</td>
+                      <td className="text-sm">{d.investments?.title || '—'}</td>
                       <td className="text-mono text-sm">{formatPercentage(d.ownership_percentage)}</td>
                       <td className="text-mono font-bold" style={{ color: 'var(--accent-emerald)' }}>{formatCurrency(d.amount)}</td>
                       <td className="text-sm text-muted">{formatDate(d.distribution_date)}</td>
                       <td><span className={`badge badge-${d.reinvested ? 'blue' : 'gray'}`}>{d.reinvested ? 'Yes' : 'No'}</span></td>
+                      {isAdmin && (
+                        <td>
+                          <AdminActions
+                            onDelete={async () => {
+                              if (!window.confirm('Delete this dividend record?')) return
+                              const { error } = await supabase.from('dividends').delete().eq('id', d.id)
+                              if (error) toast.error(error.message)
+                              else { toast.success('Dividend deleted'); fetchData() }
+                            }}
+                            size="xs"
+                          />
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
