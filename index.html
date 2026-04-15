@@ -1,36 +1,79 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#5a8a1e" />
-    <meta name="description" content="Fundex Group Savings & Investment Management Platform" />
-    <!-- iOS PWA -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Fundex" />
-    <!-- Android PWA -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <!-- Splash screen color -->
-    <meta name="msapplication-TileColor" content="#5a8a1e" />
-    <title>Fundex Savings & Investment</title>
-    <style>
-      /* Prevent flash of unstyled content on mobile */
-      body { margin: 0; background: #f0f2f0; }
-      /* Safe area support for iPhone notch/home bar */
-      .mobile-bottom-nav {
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-      }
-      .page-content {
-        padding-bottom: max(72px, calc(60px + env(safe-area-inset-bottom, 0px)));
-      }
-    </style>
-  </head>
+<head>
+  <!-- Basic -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Fundex | Smart Savings & Investment Platform Kenya</title>
+  <meta name="description" content="Fundex is a modern group savings and investment management platform in Kenya. Manage chama contributions, track investments, and grow your wealth securely." />
+  <meta name="keywords" content="Fundex, savings app Kenya, chama management, investment platform Kenya, group savings, fintech Kenya" />
+  <meta name="author" content="GeoTreks Kenya" />
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://finance.geotreks.co.ke/" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#5a8a1e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Fundex" />
+  <meta name="msapplication-TileColor" content="#5a8a1e" />
+
+  <!-- Open Graph (Facebook, LinkedIn) -->
+  <meta property="og:title" content="Fundex | Smart Savings & Investment Platform" />
+  <meta property="og:description" content="Manage group savings, investments, and financial growth with Fundex." />
+  <meta property="og:image" content="https://finance.geotreks.co.ke/preview.png" />
+  <meta property="og:url" content="https://finance.geotreks.co.ke" />
+  <meta property="og:type" content="website" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Fundex Platform" />
+  <meta name="twitter:description" content="Smart savings & investment platform in Kenya." />
+  <meta name="twitter:image" content="https://finance.geotreks.co.ke/preview.png" />
+
+  <!-- Google Verification (ADD YOUR CODE) -->
+  <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE" />
+
+  <!-- Performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- Robots -->
+  <meta name="robots" content="index, follow" />
+
+  <!-- Structured Data (VERY IMPORTANT FOR GOOGLE) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Fundex",
+    "url": "https://finance.geotreks.co.ke",
+    "description": "Group savings and investment management platform in Kenya",
+    "publisher": {
+      "@type": "Organization",
+      "name": "GeoTreks Kenya"
+    }
+  }
+  </script>
+
+  <!-- Styles -->
+  <style>
+    body { margin: 0; background: #f0f2f0; }
+    .mobile-bottom-nav {
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .page-content {
+      padding-bottom: max(72px, calc(60px + env(safe-area-inset-bottom, 0px)));
+    }
+  </style>
+</head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
