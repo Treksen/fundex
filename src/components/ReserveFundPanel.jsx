@@ -6,11 +6,11 @@ import { formatCurrency, formatDate, formatDateTime } from '../lib/utils'
 import toast from 'react-hot-toast'
 
 const HEALTH_CFG = {
-  healthy:       { label: '✅ Healthy',        color: 'var(--accent-emerald)', bg: 'rgba(13,156,94,0.08)',  border: 'rgba(13,156,94,0.25)' },
-  building:      { label: '🔄 Building',       color: 'var(--olive)',          bg: 'rgba(90,138,30,0.08)',  border: 'rgba(90,138,30,0.2)' },
-  low:           { label: '🟡 Low',            color: 'var(--accent-amber)',   bg: 'rgba(230,144,10,0.08)', border: 'rgba(230,144,10,0.25)' },
-  below_minimum: { label: '⚠️ Below Minimum', color: 'var(--accent-amber)',   bg: 'rgba(230,144,10,0.1)',  border: 'rgba(230,144,10,0.3)' },
-  unfunded:      { label: '🔴 Unfunded',       color: 'var(--accent-red)',     bg: 'rgba(220,53,69,0.08)',  border: 'rgba(220,53,69,0.25)' },
+  healthy:       { label: '✅ Healthy',        color: '#0d9c5e', bg: 'rgba(13,156,94,0.08)',   border: 'rgba(13,156,94,0.25)' },
+  building:      { label: '🔄 Building',       color: '#5a8a1e', bg: 'rgba(90,138,30,0.08)',   border: 'rgba(90,138,30,0.2)' },
+  low:           { label: '🟡 Low',            color: '#e6900a', bg: 'rgba(230,144,10,0.08)',  border: 'rgba(230,144,10,0.25)' },
+  below_minimum: { label: '⚠️ Below Minimum', color: '#e6900a', bg: 'rgba(230,144,10,0.1)',   border: 'rgba(230,144,10,0.3)' },
+  unfunded:      { label: '🔴 Unfunded',       color: '#dc3545', bg: 'rgba(220,53,69,0.08)',   border: 'rgba(220,53,69,0.25)' },
 }
 
 export default function ReserveFundPanel({ onUpdate }) {
@@ -143,7 +143,8 @@ export default function ReserveFundPanel({ onUpdate }) {
             <div style={{
               height: '100%', borderRadius: 99,
               width: `${pct}%`,
-              background: `linear-gradient(90deg, ${hcfg.color}aa, ${hcfg.color})`,
+              background: hcfg.color,
+              opacity: 0.85,
               transition: 'width 1s ease',
             }} />
           </div>

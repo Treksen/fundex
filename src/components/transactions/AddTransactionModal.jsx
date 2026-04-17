@@ -127,7 +127,9 @@ export default function AddTransactionModal({ onClose, onSuccess, preselectedUse
       description: form.description
         ? form.description + (isOverdraft ? ` [OVERDRAFT: KES ${loanAmount.toLocaleString()} treated as loan]` : '')
         : isOverdraft ? `[OVERDRAFT: KES ${loanAmount.toLocaleString()} treated as loan]` : null,
-      transaction_date: form.transaction_date,
+      // form.transaction_date is "2026-04-17T19:45" (local time, no TZ)
+      // new Date() treats it as local → .toISOString() converts to UTC correctly
+      transaction_date: new Date(form.transaction_date).toISOString(),
       created_by: profile.id,
       status: form.type === 'withdrawal' ? 'pending' : 'completed',
       is_loan: isOverdraft,
@@ -404,7 +406,7 @@ export default function AddTransactionModal({ onClose, onSuccess, preselectedUse
             <div className="form-group">
               <label className="form-label">Bank Reference Code</label>
               <input className="form-input" name="reference" type="text"
-                placeholder="e.g. TXN20240115001"
+                placeholder="e.g. UDG4B1JKL2"
                 value={form.reference} onChange={handleChange} />
             </div>
 

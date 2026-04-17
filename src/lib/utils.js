@@ -34,27 +34,22 @@ export const formatDateTime = (date) => {
   let d
   if (typeof date === 'string') {
     const str = date.trim()
-    // Supabase always returns UTC timestamptz — ensure we parse as UTC
-    // by appending Z if no timezone info present
-    const hasTZ = str.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(str) || /[+-]\d{2}$/.test(str)
-    if (hasTZ) {
-      d = new Date(str)
-    } else if (str.includes('T')) {
-      // Supabase timestamptz without Z suffix — it's UTC, force parse as UTC
-      d = new Date(str + 'Z')
-    } else if (str.includes(' ') && str.length > 10) {
-      // "2026-04-15 18:16:00" format from Supabase — also UTC
-      d = new Date(str.replace(' ', 'T') + 'Z')
-    } else {
-      // Plain date only "2026-04-15" — no time component, treat as local midnight
+    if (str.length === 10) {
+      // Plain date "2026-04-17" — no time, treat as local midnight
       const [year, month, day] = str.split('-')
       d = new Date(Number(year), Number(month) - 1, Number(day))
+    } else {
+      // All other formats — let the browser parse it
+      // Supabase returns UTC with Z: "2026-04-17T16:45:00Z" → browser converts to local
+      // datetime-local strings "2026-04-17T19:45" → treated as local (correct)
+      d = new Date(str.includes('Z') || str.includes('+') || str.includes('-', 10)
+        ? str              // has TZ info — parse as-is
+        : str + 'Z')       // no TZ info from Supabase — it's UTC, append Z
     }
   } else {
     d = date
   }
   if (!isValid(d)) return '—'
-  // Format in user's local timezone (browser handles UTC→local conversion)
   return format(d, 'dd MMM yyyy, HH:mm')
 }
 
