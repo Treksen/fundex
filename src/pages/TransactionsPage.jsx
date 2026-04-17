@@ -300,8 +300,8 @@ export default function TransactionsPage() {
   return (
     <div>
       <PageHeader
-        title="Transactions <GOAL Account><135 146 0749>"
-        subtitle={`${totalCount} total records`}
+        title="Transactions"
+        subtitle={`Account No • 135 146 0749 • ${totalCount} records`}
         onRefresh={fetchData}
         loading={loading}
       >
@@ -312,128 +312,376 @@ export default function TransactionsPage() {
 
       {/* Filters */}
       <div className="card mb-4">
-        <div className="filter-bar" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Filter size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-          <select className="form-select" style={{ flex: 1, minWidth: 0 }} value={filter.type} onChange={e => setFilter(p => ({ ...p, type: e.target.value }))}>
+        <div
+          className="filter-bar"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <Filter
+            size={15}
+            style={{ color: "var(--text-muted)", flexShrink: 0 }}
+          />
+          <select
+            className="form-select"
+            style={{ flex: 1, minWidth: 0 }}
+            value={filter.type}
+            onChange={(e) => setFilter((p) => ({ ...p, type: e.target.value }))}
+          >
             <option value="">All Types</option>
             <option value="deposit">Deposit</option>
             <option value="withdrawal">Withdrawal</option>
             <option value="adjustment">Adjustment</option>
           </select>
-          <select className="form-select" style={{ flex: 1, minWidth: 0 }} value={filter.status} onChange={e => setFilter(p => ({ ...p, status: e.target.value }))}>
+          <select
+            className="form-select"
+            style={{ flex: 1, minWidth: 0 }}
+            value={filter.status}
+            onChange={(e) =>
+              setFilter((p) => ({ ...p, status: e.target.value }))
+            }
+          >
             <option value="">All Status</option>
             <option value="completed">Completed</option>
             <option value="pending">Pending</option>
             <option value="rejected">Rejected</option>
           </select>
-          <select className="form-select" style={{ flex: 1, minWidth: 0 }} value={filter.member} onChange={e => setFilter(p => ({ ...p, member: e.target.value }))}>
+          <select
+            className="form-select"
+            style={{ flex: 1, minWidth: 0 }}
+            value={filter.member}
+            onChange={(e) =>
+              setFilter((p) => ({ ...p, member: e.target.value }))
+            }
+          >
             <option value="">All Members</option>
-            {members.map(m => <option key={m.id} value={m.id}>{m.name?.split(' ')[0]}</option>)}
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name?.split(" ")[0]}
+              </option>
+            ))}
           </select>
           {(filter.type || filter.status || filter.member) && (
-            <button className="btn btn-secondary btn-sm" onClick={() => setFilter({ type: '', status: '', member: '' })}>Clear</button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setFilter({ type: "", status: "", member: "" })}
+            >
+              Clear
+            </button>
           )}
         </div>
       </div>
 
       {/* Pending approvals banner */}
-      {transactions.some(t => t.type === 'withdrawal' && t.status === 'pending' && canVote(t.id)) && (
-        <div style={{ background: 'rgba(230,144,10,0.08)', border: '1px solid rgba(230,144,10,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <AlertCircle size={16} style={{ color: 'var(--accent-amber)', flexShrink: 0 }} />
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent-amber)' }}>You have pending withdrawal approvals — click a row to review</span>
+      {transactions.some(
+        (t) =>
+          t.type === "withdrawal" && t.status === "pending" && canVote(t.id),
+      ) && (
+        <div
+          style={{
+            background: "rgba(230,144,10,0.08)",
+            border: "1px solid rgba(230,144,10,0.25)",
+            borderRadius: 10,
+            padding: "12px 16px",
+            marginBottom: 16,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <AlertCircle
+            size={16}
+            style={{ color: "var(--accent-amber)", flexShrink: 0 }}
+          />
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--accent-amber)",
+            }}
+          >
+            You have pending withdrawal approvals — click a row to review
+          </span>
         </div>
       )}
 
       {/* Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {loading ? (
-          <div className="flex items-center justify-center" style={{ padding: 48 }}>
+          <div
+            className="flex items-center justify-center"
+            style={{ padding: 48 }}
+          >
             <div className="spinner" style={{ width: 32, height: 32 }} />
           </div>
         ) : transactions.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">💳</div>
             <p style={{ fontWeight: 600 }}>No transactions found</p>
-            <p className="text-sm">Adjust filters or record your first transaction</p>
+            <p className="text-sm">
+              Adjust filters or record your first transaction
+            </p>
           </div>
         ) : (
           <>
-            <div className="table-container tx-table-view" style={{ borderRadius: 0, border: 'none' }}>
+            <div
+              className="table-container tx-table-view"
+              style={{ borderRadius: 0, border: "none" }}
+            >
               <table>
                 <thead>
                   <tr>
-                    <th>Member</th><th>Type</th><th>Amount</th><th>Reference</th>
-                    <th>Date</th><th>Status</th><th style={{ width: 100 }}>Approvals</th>
+                    <th>Member</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Reference</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th style={{ width: 100 }}>Approvals</th>
                     <th style={{ width: isAdmin ? 110 : 40 }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map(tx => {
-                    const summary = getApprovalSummary(tx.id)
-                    const isWithdrawalPending = tx.type === 'withdrawal' && tx.status === 'pending'
-                    const needsMyVote = canVote(tx.id)
-                    const isExpanded = expandedRows[tx.id]
-                    const isEditing = editingTx === tx.id
-                    const isDeleting = deletingId === tx.id
+                  {transactions.map((tx) => {
+                    const summary = getApprovalSummary(tx.id);
+                    const isWithdrawalPending =
+                      tx.type === "withdrawal" && tx.status === "pending";
+                    const needsMyVote = canVote(tx.id);
+                    const isExpanded = expandedRows[tx.id];
+                    const isEditing = editingTx === tx.id;
+                    const isDeleting = deletingId === tx.id;
 
                     return (
                       <React.Fragment key={tx.id}>
-                        <tr id={`tx-row-${tx.id}`}
+                        <tr
+                          id={`tx-row-${tx.id}`}
                           style={{
-                            background: highlightId === tx.id ? 'rgba(90,138,30,0.05)' : needsMyVote ? 'rgba(230,144,10,0.04)' : undefined,
-                            cursor: isWithdrawalPending ? 'pointer' : undefined,
-                            borderLeft: highlightId === tx.id ? '3px solid var(--olive)' : needsMyVote ? '3px solid var(--accent-amber)' : '3px solid transparent',
+                            background:
+                              highlightId === tx.id
+                                ? "rgba(90,138,30,0.05)"
+                                : needsMyVote
+                                  ? "rgba(230,144,10,0.04)"
+                                  : undefined,
+                            cursor: isWithdrawalPending ? "pointer" : undefined,
+                            borderLeft:
+                              highlightId === tx.id
+                                ? "3px solid var(--olive)"
+                                : needsMyVote
+                                  ? "3px solid var(--accent-amber)"
+                                  : "3px solid transparent",
                             opacity: isDeleting ? 0.4 : 1,
                           }}
-                          onClick={() => !isEditing && isWithdrawalPending && toggleExpand(tx.id)}
+                          onClick={() =>
+                            !isEditing &&
+                            isWithdrawalPending &&
+                            toggleExpand(tx.id)
+                          }
                         >
                           <td>
                             <div className="flex items-center gap-2">
-                              <MemberAvatar name={tx.profiles?.name} avatarUrl={tx.profiles?.avatar_url} size={30} fontSize={11} />
+                              <MemberAvatar
+                                name={tx.profiles?.name}
+                                avatarUrl={tx.profiles?.avatar_url}
+                                size={30}
+                                fontSize={11}
+                              />
                               <div>
-                                <div style={{ fontSize: 13, fontWeight: 600 }}>{tx.profiles?.name?.split(' ').slice(0,2).join(' ')}</div>
-                                {tx.description && <div className="text-xs text-muted" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.description}</div>}
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>
+                                  {tx.profiles?.name
+                                    ?.split(" ")
+                                    .slice(0, 2)
+                                    .join(" ")}
+                                </div>
+                                {tx.description && (
+                                  <div
+                                    className="text-xs text-muted"
+                                    style={{
+                                      maxWidth: 160,
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {tx.description}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>
-                          <td><span className={`badge badge-${tx.type === 'deposit' ? 'green' : tx.type === 'withdrawal' ? 'red' : 'amber'}`}>{tx.type === 'deposit' ? '↑' : tx.type === 'withdrawal' ? '↓' : '±'} {tx.type}</span></td>
-                          <td className="text-mono font-semibold" style={{ color: tx.type === 'deposit' ? 'var(--accent-emerald)' : 'var(--accent-red)' }}>{tx.type === 'deposit' ? '+' : '-'}{formatCurrency(tx.amount)}</td>
-                          <td className="text-sm text-secondary">{tx.reference || '—'}</td>
-                          <td className="text-sm text-muted">{formatDateTime(tx.transaction_date)}</td>
-                          <td><span className={`badge ${getStatusBadge(tx.status)}`}>{tx.status}</span></td>
+                          <td>
+                            <span
+                              className={`badge badge-${tx.type === "deposit" ? "green" : tx.type === "withdrawal" ? "red" : "amber"}`}
+                            >
+                              {tx.type === "deposit"
+                                ? "↑"
+                                : tx.type === "withdrawal"
+                                  ? "↓"
+                                  : "±"}{" "}
+                              {tx.type}
+                            </span>
+                          </td>
+                          <td
+                            className="text-mono font-semibold"
+                            style={{
+                              color:
+                                tx.type === "deposit"
+                                  ? "var(--accent-emerald)"
+                                  : "var(--accent-red)",
+                            }}
+                          >
+                            {tx.type === "deposit" ? "+" : "-"}
+                            {formatCurrency(tx.amount)}
+                          </td>
+                          <td className="text-sm text-secondary">
+                            {tx.reference || "—"}
+                          </td>
+                          <td className="text-sm text-muted">
+                            {formatDateTime(tx.transaction_date)}
+                          </td>
+                          <td>
+                            <span
+                              className={`badge ${getStatusBadge(tx.status)}`}
+                            >
+                              {tx.status}
+                            </span>
+                          </td>
                           <td>
                             {isWithdrawalPending && summary.total > 0 ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <div style={{ display: 'flex', gap: 3 }}>
-                                  {(approvals[tx.id] || []).map(a => (
-                                    <div key={a.id} title={`${a.profiles?.name?.split(' ')[0]}: ${a.status}`} style={{ borderRadius: '50%', overflow: 'hidden', border: a.status === 'approved' ? '2px solid rgba(13,156,94,0.6)' : a.status === 'rejected' ? '2px solid rgba(220,53,69,0.6)' : '2px solid var(--border)', opacity: a.status === 'pending' ? 0.45 : 1 }}>
-                                      <MemberAvatar name={a.profiles?.name} avatarUrl={a.profiles?.avatar_url} size={22} fontSize={8} />
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                }}
+                              >
+                                <div style={{ display: "flex", gap: 3 }}>
+                                  {(approvals[tx.id] || []).map((a) => (
+                                    <div
+                                      key={a.id}
+                                      title={`${a.profiles?.name?.split(" ")[0]}: ${a.status}`}
+                                      style={{
+                                        borderRadius: "50%",
+                                        overflow: "hidden",
+                                        border:
+                                          a.status === "approved"
+                                            ? "2px solid rgba(13,156,94,0.6)"
+                                            : a.status === "rejected"
+                                              ? "2px solid rgba(220,53,69,0.6)"
+                                              : "2px solid var(--border)",
+                                        opacity:
+                                          a.status === "pending" ? 0.45 : 1,
+                                      }}
+                                    >
+                                      <MemberAvatar
+                                        name={a.profiles?.name}
+                                        avatarUrl={a.profiles?.avatar_url}
+                                        size={22}
+                                        fontSize={8}
+                                      />
                                     </div>
                                   ))}
                                 </div>
-                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{summary.approved.length}/{summary.total}</span>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    color: "var(--text-muted)",
+                                  }}
+                                >
+                                  {summary.approved.length}/{summary.total}
+                                </span>
                               </div>
-                            ) : tx.type === 'withdrawal' && tx.status === 'completed' ? (
-                              <span style={{ fontSize: 11, color: 'var(--accent-emerald)' }}>✓ All approved</span>
-                            ) : tx.type === 'withdrawal' && tx.status === 'rejected' ? (
-                              <span style={{ fontSize: 11, color: 'var(--accent-red)' }}>✕ Rejected</span>
-                            ) : <span className="text-muted text-xs">—</span>}
+                            ) : tx.type === "withdrawal" &&
+                              tx.status === "completed" ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--accent-emerald)",
+                                }}
+                              >
+                                ✓ All approved
+                              </span>
+                            ) : tx.type === "withdrawal" &&
+                              tx.status === "rejected" ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--accent-red)",
+                                }}
+                              >
+                                ✕ Rejected
+                              </span>
+                            ) : (
+                              <span className="text-muted text-xs">—</span>
+                            )}
                           </td>
-                          <td onClick={e => e.stopPropagation()}>
+                          <td onClick={(e) => e.stopPropagation()}>
                             <div className="row-actions">
                               {isWithdrawalPending && (
-                                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }} onClick={() => toggleExpand(tx.id)}>
-                                  {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                <button
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    color: "var(--text-muted)",
+                                    padding: 4,
+                                  }}
+                                  onClick={() => toggleExpand(tx.id)}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUp size={16} />
+                                  ) : (
+                                    <ChevronDown size={16} />
+                                  )}
                                 </button>
                               )}
-                              {needsMyVote && !isExpanded && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-amber)', display: 'inline-block' }} />}
+                              {needsMyVote && !isExpanded && (
+                                <span
+                                  style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: "50%",
+                                    background: "var(--accent-amber)",
+                                    display: "inline-block",
+                                  }}
+                                />
+                              )}
                               {isAdmin && (
                                 <>
-                                  <button className="btn-row-edit" onClick={() => isEditing ? setEditingTx(null) : startEdit(tx)} title="Edit transaction">
+                                  <button
+                                    className="btn-row-edit"
+                                    onClick={() =>
+                                      isEditing
+                                        ? setEditingTx(null)
+                                        : startEdit(tx)
+                                    }
+                                    title="Edit transaction"
+                                  >
                                     <Edit2 size={11} />
                                   </button>
-                                  <button className="btn-row-delete" disabled={isDeleting} onClick={() => handleDelete(tx.id, tx.type, tx.amount, tx.profiles?.name)} title="Delete transaction">
-                                    {isDeleting ? <div className="spinner" style={{ width: 10, height: 10 }} /> : <Trash2 size={11} />}
+                                  <button
+                                    className="btn-row-delete"
+                                    disabled={isDeleting}
+                                    onClick={() =>
+                                      handleDelete(
+                                        tx.id,
+                                        tx.type,
+                                        tx.amount,
+                                        tx.profiles?.name,
+                                      )
+                                    }
+                                    title="Delete transaction"
+                                  >
+                                    {isDeleting ? (
+                                      <div
+                                        className="spinner"
+                                        style={{ width: 10, height: 10 }}
+                                      />
+                                    ) : (
+                                      <Trash2 size={11} />
+                                    )}
                                   </button>
                                 </>
                               )}
@@ -444,41 +692,171 @@ export default function TransactionsPage() {
                         {/* Admin inline edit row */}
                         {isAdmin && isEditing && (
                           <tr key={`${tx.id}-edit`}>
-                            <td colSpan={8} style={{ padding: '8px 16px 14px', background: 'rgba(58,77,181,0.03)' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, alignItems: 'end' }}>
+                            <td
+                              colSpan={8}
+                              style={{
+                                padding: "8px 16px 14px",
+                                background: "rgba(58,77,181,0.03)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns:
+                                    "repeat(auto-fit, minmax(140px, 1fr))",
+                                  gap: 10,
+                                  alignItems: "end",
+                                }}
+                              >
                                 <div>
-                                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Amount (KES)</p>
-                                  <input className="form-input" type="number" min="0.01" step="0.01" value={editForm.amount} onChange={e => setEditForm(p => ({ ...p, amount: e.target.value }))} style={{ fontSize: 13 }} />
+                                  <p
+                                    style={{
+                                      fontSize: 11,
+                                      color: "var(--text-muted)",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    Amount (KES)
+                                  </p>
+                                  <input
+                                    className="form-input"
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    value={editForm.amount}
+                                    onChange={(e) =>
+                                      setEditForm((p) => ({
+                                        ...p,
+                                        amount: e.target.value,
+                                      }))
+                                    }
+                                    style={{ fontSize: 13 }}
+                                  />
                                 </div>
                                 <div>
-                                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Type</p>
-                                  <select className="form-select" value={editForm.type} onChange={e => setEditForm(p => ({ ...p, type: e.target.value }))} style={{ fontSize: 13 }}>
+                                  <p
+                                    style={{
+                                      fontSize: 11,
+                                      color: "var(--text-muted)",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    Type
+                                  </p>
+                                  <select
+                                    className="form-select"
+                                    value={editForm.type}
+                                    onChange={(e) =>
+                                      setEditForm((p) => ({
+                                        ...p,
+                                        type: e.target.value,
+                                      }))
+                                    }
+                                    style={{ fontSize: 13 }}
+                                  >
                                     <option value="deposit">Deposit</option>
-                                    <option value="withdrawal">Withdrawal</option>
-                                    <option value="adjustment">Adjustment</option>
+                                    <option value="withdrawal">
+                                      Withdrawal
+                                    </option>
+                                    <option value="adjustment">
+                                      Adjustment
+                                    </option>
                                   </select>
                                 </div>
                                 <div>
-                                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Status</p>
-                                  <select className="form-select" value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} style={{ fontSize: 13 }}>
+                                  <p
+                                    style={{
+                                      fontSize: 11,
+                                      color: "var(--text-muted)",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    Status
+                                  </p>
+                                  <select
+                                    className="form-select"
+                                    value={editForm.status}
+                                    onChange={(e) =>
+                                      setEditForm((p) => ({
+                                        ...p,
+                                        status: e.target.value,
+                                      }))
+                                    }
+                                    style={{ fontSize: 13 }}
+                                  >
                                     <option value="completed">Completed</option>
                                     <option value="pending">Pending</option>
                                     <option value="rejected">Rejected</option>
                                   </select>
                                 </div>
                                 <div>
-                                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Reference</p>
-                                  <input className="form-input" value={editForm.reference} onChange={e => setEditForm(p => ({ ...p, reference: e.target.value }))} style={{ fontSize: 13 }} />
+                                  <p
+                                    style={{
+                                      fontSize: 11,
+                                      color: "var(--text-muted)",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    Reference
+                                  </p>
+                                  <input
+                                    className="form-input"
+                                    value={editForm.reference}
+                                    onChange={(e) =>
+                                      setEditForm((p) => ({
+                                        ...p,
+                                        reference: e.target.value,
+                                      }))
+                                    }
+                                    style={{ fontSize: 13 }}
+                                  />
                                 </div>
                                 <div>
-                                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Description</p>
-                                  <input className="form-input" value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} style={{ fontSize: 13 }} />
+                                  <p
+                                    style={{
+                                      fontSize: 11,
+                                      color: "var(--text-muted)",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    Description
+                                  </p>
+                                  <input
+                                    className="form-input"
+                                    value={editForm.description}
+                                    onChange={(e) =>
+                                      setEditForm((p) => ({
+                                        ...p,
+                                        description: e.target.value,
+                                      }))
+                                    }
+                                    style={{ fontSize: 13 }}
+                                  />
                                 </div>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                  <button className="btn btn-primary btn-sm" disabled={savingEdit} onClick={saveEdit} style={{ flex: 1 }}>
-                                    {savingEdit ? <div className="spinner" style={{ width: 12, height: 12 }} /> : <><Check size={12} /> Save</>}
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <button
+                                    className="btn btn-primary btn-sm"
+                                    disabled={savingEdit}
+                                    onClick={saveEdit}
+                                    style={{ flex: 1 }}
+                                  >
+                                    {savingEdit ? (
+                                      <div
+                                        className="spinner"
+                                        style={{ width: 12, height: 12 }}
+                                      />
+                                    ) : (
+                                      <>
+                                        <Check size={12} /> Save
+                                      </>
+                                    )}
                                   </button>
-                                  <button className="btn btn-secondary btn-sm" onClick={() => setEditingTx(null)}>Cancel</button>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => setEditingTx(null)}
+                                  >
+                                    Cancel
+                                  </button>
                                 </div>
                               </div>
                             </td>
@@ -488,11 +866,13 @@ export default function TransactionsPage() {
                         {/* Approval panel */}
                         {isWithdrawalPending && isExpanded && (
                           <tr key={`${tx.id}-panel`}>
-                            <td colSpan={8} style={{ padding: '0 16px 14px' }}><ApprovalPanel tx={tx} /></td>
+                            <td colSpan={8} style={{ padding: "0 16px 14px" }}>
+                              <ApprovalPanel tx={tx} />
+                            </td>
                           </tr>
                         )}
                       </React.Fragment>
-                    )
+                    );
                   })}
                 </tbody>
               </table>
@@ -500,54 +880,163 @@ export default function TransactionsPage() {
 
             {/* Mobile card list */}
             <div>
-              {transactions.map(tx => {
-                const summary = getApprovalSummary(tx.id)
-                const isWithdrawalPending = tx.type === 'withdrawal' && tx.status === 'pending'
-                const needsMyVote = canVote(tx.id)
-                const isExpanded = expandedRows[tx.id]
+              {transactions.map((tx) => {
+                const summary = getApprovalSummary(tx.id);
+                const isWithdrawalPending =
+                  tx.type === "withdrawal" && tx.status === "pending";
+                const needsMyVote = canVote(tx.id);
+                const isExpanded = expandedRows[tx.id];
                 return (
-                  <div key={`mob-${tx.id}`} className="mobile-tx-card"
-                    style={{ background: highlightId === tx.id ? 'rgba(90,138,30,0.04)' : needsMyVote ? 'rgba(230,144,10,0.03)' : undefined, borderLeft: highlightId === tx.id ? '3px solid var(--olive)' : needsMyVote ? '3px solid var(--accent-amber)' : '3px solid transparent', cursor: isWithdrawalPending ? 'pointer' : 'default' }}
-                    onClick={() => isWithdrawalPending && toggleExpand(tx.id)}>
+                  <div
+                    key={`mob-${tx.id}`}
+                    className="mobile-tx-card"
+                    style={{
+                      background:
+                        highlightId === tx.id
+                          ? "rgba(90,138,30,0.04)"
+                          : needsMyVote
+                            ? "rgba(230,144,10,0.03)"
+                            : undefined,
+                      borderLeft:
+                        highlightId === tx.id
+                          ? "3px solid var(--olive)"
+                          : needsMyVote
+                            ? "3px solid var(--accent-amber)"
+                            : "3px solid transparent",
+                      cursor: isWithdrawalPending ? "pointer" : "default",
+                    }}
+                    onClick={() => isWithdrawalPending && toggleExpand(tx.id)}
+                  >
                     <div className="mobile-tx-card-row">
                       <div className="mobile-tx-card-member">
-                        <MemberAvatar name={tx.profiles?.name} avatarUrl={tx.profiles?.avatar_url} size={38} fontSize={13} />
+                        <MemberAvatar
+                          name={tx.profiles?.name}
+                          avatarUrl={tx.profiles?.avatar_url}
+                          size={38}
+                          fontSize={13}
+                        />
                         <div className="mobile-tx-card-info">
-                          <div className="mobile-tx-card-name">{tx.profiles?.name?.split(' ').slice(0,2).join(' ')}</div>
-                          <div className="mobile-tx-card-sub">{tx.reference || tx.description || '—'}</div>
+                          <div className="mobile-tx-card-name">
+                            {tx.profiles?.name
+                              ?.split(" ")
+                              .slice(0, 2)
+                              .join(" ")}
+                          </div>
+                          <div className="mobile-tx-card-sub">
+                            {tx.reference || tx.description || "—"}
+                          </div>
                         </div>
                       </div>
-                      <span className="mobile-tx-card-amount" style={{ color: tx.type === 'deposit' ? 'var(--accent-emerald)' : 'var(--accent-red)' }}>
-                        {tx.type === 'deposit' ? '+' : '-'}{formatCurrency(tx.amount)}
+                      <span
+                        className="mobile-tx-card-amount"
+                        style={{
+                          color:
+                            tx.type === "deposit"
+                              ? "var(--accent-emerald)"
+                              : "var(--accent-red)",
+                        }}
+                      >
+                        {tx.type === "deposit" ? "+" : "-"}
+                        {formatCurrency(tx.amount)}
                       </span>
                     </div>
                     <div className="mobile-tx-card-meta">
-                      <span className={`badge badge-${tx.type === 'deposit' ? 'green' : tx.type === 'withdrawal' ? 'red' : 'amber'}`} style={{ fontSize: 10 }}>{tx.type}</span>
-                      <span className={`badge ${getStatusBadge(tx.status)}`} style={{ fontSize: 10 }}>{tx.status}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>{formatDateTime(tx.transaction_date)}</span>
-                      {isWithdrawalPending && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{summary.approved.length}/{summary.total} {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>}
+                      <span
+                        className={`badge badge-${tx.type === "deposit" ? "green" : tx.type === "withdrawal" ? "red" : "amber"}`}
+                        style={{ fontSize: 10 }}
+                      >
+                        {tx.type}
+                      </span>
+                      <span
+                        className={`badge ${getStatusBadge(tx.status)}`}
+                        style={{ fontSize: 10 }}
+                      >
+                        {tx.status}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                          marginLeft: "auto",
+                        }}
+                      >
+                        {formatDateTime(tx.transaction_date)}
+                      </span>
+                      {isWithdrawalPending && (
+                        <span
+                          style={{ fontSize: 11, color: "var(--text-muted)" }}
+                        >
+                          {summary.approved.length}/{summary.total}{" "}
+                          {isExpanded ? (
+                            <ChevronUp size={13} />
+                          ) : (
+                            <ChevronDown size={13} />
+                          )}
+                        </span>
+                      )}
                     </div>
                     {/* Admin actions on mobile */}
                     {isAdmin && (
-                      <div style={{ display: 'flex', gap: 6, marginTop: 8 }} onClick={e => e.stopPropagation()}>
-                        <button className="btn-row-edit" style={{ flex: 1 }} onClick={() => { startEdit(tx); toggleExpand(tx.id) }}><Edit2 size={11} /> Edit</button>
-                        <button className="btn-row-delete" style={{ flex: 1 }} onClick={() => handleDelete(tx.id, tx.type, tx.amount, tx.profiles?.name)}><Trash2 size={11} /> Delete</button>
+                      <div
+                        style={{ display: "flex", gap: 6, marginTop: 8 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          className="btn-row-edit"
+                          style={{ flex: 1 }}
+                          onClick={() => {
+                            startEdit(tx);
+                            toggleExpand(tx.id);
+                          }}
+                        >
+                          <Edit2 size={11} /> Edit
+                        </button>
+                        <button
+                          className="btn-row-delete"
+                          style={{ flex: 1 }}
+                          onClick={() =>
+                            handleDelete(
+                              tx.id,
+                              tx.type,
+                              tx.amount,
+                              tx.profiles?.name,
+                            )
+                          }
+                        >
+                          <Trash2 size={11} /> Delete
+                        </button>
                       </div>
                     )}
                     {isWithdrawalPending && isExpanded && (
-                      <div className="mobile-approval-panel" onClick={e => e.stopPropagation()}><ApprovalPanel tx={tx} /></div>
+                      <div
+                        className="mobile-approval-panel"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ApprovalPanel tx={tx} />
+                      </div>
                     )}
                   </div>
-                )
+                );
               })}
             </div>
 
-            <Pagination page={page} totalPages={totalPages} totalItems={totalCount} pageSize={PAGE_SIZE} onChange={setPage} />
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalCount}
+              pageSize={PAGE_SIZE}
+              onChange={setPage}
+            />
           </>
         )}
       </div>
 
-      {showAdd && <AddTransactionModal onClose={() => setShowAdd(false)} onSuccess={fetchData} />}
+      {showAdd && (
+        <AddTransactionModal
+          onClose={() => setShowAdd(false)}
+          onSuccess={fetchData}
+        />
+      )}
     </div>
-  )
+  );
 }
