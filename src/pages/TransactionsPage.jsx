@@ -300,7 +300,7 @@ export default function TransactionsPage() {
   return (
     <div>
       <PageHeader
-        title="Transactions"
+        title="Transactions <KCB GOAL Account><135 146 0749>"
         subtitle={`${totalCount} total records`}
         onRefresh={fetchData}
         loading={loading}
