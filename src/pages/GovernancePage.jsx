@@ -64,20 +64,26 @@ export default function GovernancePage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [apprRes, voteRes, memRes] = await Promise.all([
+    //NEW Fetch approvals, votes, members, and acknowledgements in parallel
+    const [apprRes, voteRes, memRes, ackRes] = await Promise.all([
       supabase
         .from("action_approvals")
         .select(
           "*, profiles!action_approvals_requested_by_fkey(name,avatar_url)",
         )
         .order("created_at", { ascending: false }),
+
       supabase
         .from("action_approval_votes")
         .select(
           "*, profiles!action_approval_votes_voter_id_fkey(name,avatar_url)",
         ),
+
       supabase.from("profiles").select("id,name,avatar_url,role"),
+
+      supabase.from("action_approval_acknowledgements").select("*"),
     ]);
+    //END NEW
     if (apprRes.data) setApprovals(apprRes.data);
     if (voteRes.data) {
       const map = {};
@@ -89,6 +95,17 @@ export default function GovernancePage() {
     }
     if (memRes.data) setMembers(memRes.data);
     setLoading(false);
+    // NEW Process acknowledgements into a map for easy lookup
+    const ackMap = {};
+    if (ackRes?.data) {
+      ackRes.data.forEach((a) => {
+        if (!ackMap[a.approval_id]) ackMap[a.approval_id] = {};
+        ackMap[a.approval_id][a.user_id] = true;
+      });
+    }
+
+    setAcknowledgements(ackMap);
+    //END NEW
   }, []);
 
   useEffect(() => {
@@ -165,7 +182,9 @@ export default function GovernancePage() {
   const canVote = (appr) =>
     appr.status === "pending" &&
     appr.requested_by !== profile?.id &&
-    !myVote(appr.id);
+    !myVote(appr.id) &&
+    acknowledgements?.[appr.id]?.[profile?.id];
+    // acknowledged[appr.id];
   const filtered = useMemo(
     () =>
       filterStatus
@@ -177,6 +196,10 @@ export default function GovernancePage() {
     (a) =>
       a.status === "pending" && a.requested_by !== profile?.id && !myVote(a.id),
   ).length;
+  //NEW SCRIPT FOR APPROVALS
+  const [acknowledged, setAcknowledged] = useState({});
+  const [acknowledgements, setAcknowledgements] = useState({});
+  const hasAcknowledged = (id) => acknowledged[id];
 
   return (
     <div>
@@ -276,6 +299,11 @@ export default function GovernancePage() {
             const scfg = STATUS_CFG[appr.status] || STATUS_CFG.pending;
             const apprVotes = votes[appr.id] || [];
             const mine = myVote(appr.id);
+            const hasRead = acknowledgements?.[appr.id]?.[profile?.id];
+            const isFinalized =
+              appr.status === "approved" ||
+              appr.status === "rejected" ||
+              appr.status === "cancelled";
             const votable = canVote(appr);
             const isVoting = voting[appr.id];
             const pct =
@@ -315,6 +343,18 @@ export default function GovernancePage() {
                       <span style={{ fontWeight: 700, fontSize: 15 }}>
                         {appr.title}
                       </span>
+                      {/* {appr.metadata?.notes && (
+                        <p
+                          style={{
+                            fontSize: 12,
+                            color: "var(--text-muted)",
+                            marginTop: 4,
+                          }}
+                        >
+                          📝 {appr.metadata.notes.slice(0, 80)}
+                          {appr.metadata.notes.length > 80 ? "..." : ""}
+                        </p>
+                      )} */}
                     </div>
                     <div
                       style={{
@@ -371,7 +411,39 @@ export default function GovernancePage() {
                     )}
                   </div>
                 </div>
+                {/* ── PROPOSAL DETAILS (NOTES) ── */}
+                {appr.metadata?.notes && (
+                  <details style={{ marginTop: 10 }}>
+                    <summary
+                      style={{
+                        cursor: "pointer",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--olive)",
+                      }}
+                    >
+                      📄 Read Full Proposal Details
+                    </summary>
 
+                    <div
+                      style={{
+                        marginTop: 8,
+                        padding: 12,
+                        borderRadius: 8,
+                        background: "var(--bg-elevated)",
+                        border: "1px solid var(--border)",
+                        fontSize: 13,
+                        color: "var(--text-secondary)",
+                        lineHeight: 1.6,
+                        whiteSpace: "pre-wrap",
+                        maxHeight: 250,
+                        overflowY: "auto",
+                      }}
+                    >
+                      {appr.metadata.notes}
+                    </div>
+                  </details>
+                )}
                 {appr.status === "pending" && (
                   <div style={{ marginBottom: 12 }}>
                     <div
@@ -461,7 +533,53 @@ export default function GovernancePage() {
                     ))}
                   </div>
                 )}
+                {appr.status === "pending" && !hasRead && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--accent-amber)",
+                      fontWeight: 600,
+                      marginBottom: 8,
+                    }}
+                  >
+                    📌 Please review proposal details before voting
+                  </div>
+                )}
+                {appr.status === "pending" && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginTop: 10,
+                      marginBottom: 10,
+                      fontSize: 12,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!hasRead || isFinalized}
+                      disabled={isFinalized}
+                      onChange={async (e) => {
+                        if (!e.target.checked) return;
 
+                        await supabase
+                          .from("action_approval_acknowledgements")
+                          .insert({
+                            approval_id: appr.id,
+                            user_id: profile.id,
+                            acknowledged: true,
+                          });
+
+                        fetchData();
+                      }}
+                    />
+
+                    <span style={{ color: "var(--text-muted)" }}>
+                      I have read the full proposal
+                    </span>
+                  </div>
+                )}
                 {votable && (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
@@ -584,17 +702,15 @@ function ProposalModal({ proposal, members, onClose, onSuccess }) {
           .from("action_approvals")
           .update(payload)
           .eq("id", proposal.id)
-      : await supabase
-          .from("action_approvals")
-          .insert({
-            ...payload,
-            reference_id: "00000000-0000-0000-0000-000000000000",
-            reference_type: form.action_type.startsWith("invest")
-              ? "investment"
-              : "transaction",
-            requested_by: profile.id,
-            min_approvals: 2,
-          });
+      : await supabase.from("action_approvals").insert({
+          ...payload,
+          reference_id: "00000000-0000-0000-0000-000000000000",
+          reference_type: form.action_type.startsWith("invest")
+            ? "investment"
+            : "transaction",
+          requested_by: profile.id,
+          min_approvals: 2,
+        });
     if (error) {
       toast.error(error.message);
       setLoading(false);
@@ -603,17 +719,20 @@ function ProposalModal({ proposal, members, onClose, onSuccess }) {
     if (!isEdit) {
       const others = members.filter((m) => m.id !== profile.id);
       if (others.length > 0)
-        await supabase
-          .from("notifications")
-          .insert(
-            others.map((m) => ({
-              user_id: m.id,
-              title: "🗳️ New Governance Proposal",
-              message: `${profile.name?.split(" ")[0]} submitted: "${form.title.trim()}" — your vote is needed.`,
-              type: "approval",
-              action_url: "/governance",
-            })),
-          );
+        await supabase.from("notifications").insert(
+          others.map((m) => ({
+            user_id: m.id,
+            title: `Governance Vote Required: ${form.title.trim()}`,
+            message: `A new governance proposal has been submitted and requires your vote.
+            Title: ${form.title.trim()}
+            Type: ${form.action_type}
+            Amount: ${form.amount ? `KES ${form.amount}` : "N/A"}
+            Details:${form.metadata || "No additional notes provided."}
+            Please review and vote on the proposal in the governance dashboard.`,
+            type: "approval",
+            action_url: "https://finance.geotreks.co.ke/governance",
+          })),
+        );
     }
     toast.success(isEdit ? "Proposal updated!" : "Proposal submitted!");
     setLoading(false);
