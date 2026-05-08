@@ -184,7 +184,7 @@ export default function GovernancePage() {
     appr.requested_by !== profile?.id &&
     !myVote(appr.id) &&
     acknowledgements?.[appr.id]?.[profile?.id];
-    // acknowledged[appr.id];
+  // acknowledged[appr.id];
   const filtered = useMemo(
     () =>
       filterStatus
@@ -413,7 +413,7 @@ export default function GovernancePage() {
                 </div>
                 {/* ── PROPOSAL DETAILS (NOTES) ── */}
                 {appr.metadata?.notes && (
-                  <details style={{ marginTop: 10 }}>
+                  <details style={{ marginTop: 10, marginBottom: 16 }}>
                     <summary
                       style={{
                         cursor: "pointer",
@@ -427,7 +427,7 @@ export default function GovernancePage() {
 
                     <div
                       style={{
-                        marginTop: 8,
+                        marginTop: 15,
                         padding: 12,
                         borderRadius: 8,
                         background: "var(--bg-elevated)",
@@ -551,37 +551,39 @@ export default function GovernancePage() {
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      marginTop: 10,
-                      marginBottom: 10,
-                      fontSize: 12,
+                      marginTop: 12,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      color: "var(--text-secondary)",
+                      userSelect: "none",
                     }}
                   >
                     <input
                       type="checkbox"
-                      checked={!!hasRead || isFinalized}
-                      disabled={isFinalized}
-                      onChange={async (e) => {
-                        if (!e.target.checked) return;
-
-                        await supabase
-                          .from("action_approval_acknowledgements")
-                          .insert({
-                            approval_id: appr.id,
-                            user_id: profile.id,
-                            acknowledged: true,
-                          });
-
-                        fetchData();
-                      }}
+                      checked={!!acknowledgements?.[appr.id]?.[profile?.id]}
+                      onChange={(e) =>
+                        setAcknowledgements((prev) => ({
+                          ...prev,
+                          [appr.id]: {
+                            ...prev[appr.id],
+                            [profile.id]: e.target.checked,
+                          },
+                        }))
+                      }
                     />
 
-                    <span style={{ color: "var(--text-muted)" }}>
-                      I have read the full proposal
-                    </span>
+                    <span>I have read the full proposal</span>
                   </div>
                 )}
                 {votable && (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      marginTop: 30,
+                    }}
+                  >
                     <button
                       className="btn btn-success btn-sm"
                       style={{
