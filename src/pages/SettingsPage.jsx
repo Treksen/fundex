@@ -10,30 +10,31 @@ import toast from 'react-hot-toast'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 
 export default function SettingsPage() {
-  const { profile, updateProfile, isAdmin } = useAuth()
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const defaultTab = searchParams.get('tab') === 'notifications' ? 'notifications' : 'profile'
-  const [activeTab, setActiveTab] = useState(defaultTab)
-  const [notifications, setNotifications] = useState([])
-  const [allNotifications, setAllNotifications] = useState([])
-  const [notifView, setNotifView] = useState('mine')   // 'mine' | 'all'
-  const [filterMember, setFilterMember] = useState('') // user_id filter for all-view
-  const [loadingNotif, setLoadingNotif] = useState(false)
+  const { profile, updateProfile, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const defaultTab =
+    searchParams.get("tab") === "notifications" ? "notifications" : "profile";
+  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [notifications, setNotifications] = useState([]);
+  const [allNotifications, setAllNotifications] = useState([]);
+  const [notifView, setNotifView] = useState("mine"); // 'mine' | 'all'
+  const [filterMember, setFilterMember] = useState(""); // user_id filter for all-view
+  const [loadingNotif, setLoadingNotif] = useState(false);
   const [emailPrefs, setEmailPrefs] = useState({
     email_notifications_enabled: true,
-    notify_on_deposits:          true,
-    notify_on_withdrawals:       true,
-    notify_on_investments:       true,
-    notify_on_governance:        true,
-  })
-  const [savingEmailPrefs, setSavingEmailPrefs] = useState(false)
-  const [form, setForm] = useState({ name: '', phone: '' })
-  const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
-  const [saving, setSaving] = useState(false)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState('')  // e.g. "Compressing…" / "Uploading…"
-  const fileInputRef = useRef(null)
+    notify_on_deposits: true,
+    notify_on_withdrawals: true,
+    notify_on_investments: true,
+    notify_on_governance: true,
+  });
+  const [savingEmailPrefs, setSavingEmailPrefs] = useState(false);
+  const [form, setForm] = useState({ name: "", phone: "" });
+  const [pwForm, setPwForm] = useState({ current: "", newPw: "", confirm: "" });
+  const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(""); // e.g. "Compressing…" / "Uploading…"
+  const fileInputRef = useRef(null);
 
   /**
    * Compress an image file using the Canvas API.
@@ -42,328 +43,573 @@ export default function SettingsPage() {
    */
   const compressImage = (file, maxDim = 800, quality = 0.82) => {
     return new Promise((resolve, reject) => {
-      const img = new Image()
-      const url = URL.createObjectURL(file)
+      const img = new Image();
+      const url = URL.createObjectURL(file);
       img.onload = () => {
-        URL.revokeObjectURL(url)
-        let { width, height } = img
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
 
         // Scale down proportionally if larger than maxDim
         if (width > maxDim || height > maxDim) {
           if (width > height) {
-            height = Math.round((height / width) * maxDim)
-            width = maxDim
+            height = Math.round((height / width) * maxDim);
+            width = maxDim;
           } else {
-            width = Math.round((width / height) * maxDim)
-            height = maxDim
+            width = Math.round((width / height) * maxDim);
+            height = maxDim;
           }
         }
 
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, width, height)
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
 
         canvas.toBlob(
-          blob => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')),
-          'image/jpeg',
-          quality
-        )
-      }
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')) }
-      img.src = url
-    })
-  }
+          (blob) =>
+            blob ? resolve(blob) : reject(new Error("Canvas toBlob failed")),
+          "image/jpeg",
+          quality,
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Image load failed"));
+      };
+      img.src = url;
+    });
+  };
 
   const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     // Reset input so same file can be re-selected after an error
-    e.target.value = ''
-    if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return }
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
 
-    setUploadingPhoto(true)
+    setUploadingPhoto(true);
     try {
       // Step 1 — Compress
-      setUploadProgress('Compressing…')
-      const compressed = await compressImage(file)
-      const sizeMB = (compressed.size / 1024 / 1024).toFixed(2)
+      setUploadProgress("Compressing…");
+      const compressed = await compressImage(file);
+      const sizeMB = (compressed.size / 1024 / 1024).toFixed(2);
 
       // Step 2 — Upload (always as JPEG after compression)
-      setUploadProgress(`Uploading (${sizeMB} MB)…`)
-      const path = `avatars/${profile.id}.jpg`
+      setUploadProgress(`Uploading (${sizeMB} MB)…`);
+      const path = `avatars/${profile.id}.jpg`;
       const { error: upErr } = await supabase.storage
-        .from('avatars')
-        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
-      if (upErr) throw upErr
+        .from("avatars")
+        .upload(path, compressed, { upsert: true, contentType: "image/jpeg" });
+      if (upErr) throw upErr;
 
       // Step 3 — Save URL to profile
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-      const avatarUrl = urlData.publicUrl + `?t=${Date.now()}` // cache-bust
-      const { error: profErr } = await updateProfile({ avatar_url: avatarUrl })
-      if (profErr) throw profErr
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(path);
+      const avatarUrl = urlData.publicUrl + `?t=${Date.now()}`; // cache-bust
+      const { error: profErr } = await updateProfile({ avatar_url: avatarUrl });
+      if (profErr) throw profErr;
 
-      toast.success(`Photo updated! (${sizeMB} MB after compression)`)
+      toast.success(`Photo updated! (${sizeMB} MB after compression)`);
     } catch (err) {
-      toast.error('Upload failed: ' + err.message)
+      toast.error("Upload failed: " + err.message);
     } finally {
-      setUploadingPhoto(false)
-      setUploadProgress('')
+      setUploadingPhoto(false);
+      setUploadProgress("");
     }
-  }
+  };
 
   useEffect(() => {
     if (profile) {
-      setForm({ name: profile.name || '', phone: profile.phone || '' })
+      setForm({ name: profile.name || "", phone: profile.phone || "" });
       setEmailPrefs({
-        email_notifications_enabled: profile.email_notifications_enabled !== false,
-        notify_on_deposits:          profile.notify_on_deposits          !== false,
-        notify_on_withdrawals:       profile.notify_on_withdrawals       !== false,
-        notify_on_investments:       profile.notify_on_investments       !== false,
-        notify_on_governance:        profile.notify_on_governance        !== false,
-      })
+        email_notifications_enabled:
+          profile.email_notifications_enabled !== false,
+        notify_on_deposits: profile.notify_on_deposits !== false,
+        notify_on_withdrawals: profile.notify_on_withdrawals !== false,
+        notify_on_investments: profile.notify_on_investments !== false,
+        notify_on_governance: profile.notify_on_governance !== false,
+      });
     }
-  }, [profile])
+  }, [profile]);
 
   useEffect(() => {
-    if (activeTab === 'notifications') {
-      fetchNotifications()
-      if (isAdmin) fetchAllNotifications()
+    if (activeTab === "notifications") {
+      fetchNotifications();
+      if (isAdmin) fetchAllNotifications();
     }
-  }, [activeTab, isAdmin])
+  }, [activeTab, isAdmin]);
 
   const fetchNotifications = useCallback(async () => {
-    setLoadingNotif(true)
+    setLoadingNotif(true);
     const { data } = await supabase
-      .from('notifications')
-      .select('*, email_sent, email_sent_at, profiles!notifications_user_id_fkey(name, avatar_url)')
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false })
-    if (data) setNotifications(data)
-    setLoadingNotif(false)
-  }, [profile])
+      .from("notifications")
+      .select(
+        "*, email_sent, email_sent_at, profiles!notifications_user_id_fkey(name, avatar_url)",
+      )
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false });
+    if (data) setNotifications(data);
+    setLoadingNotif(false);
+  }, [profile]);
 
   const fetchAllNotifications = useCallback(async () => {
-    setLoadingNotif(true)
-    const { data, error } = await supabase.rpc('admin_get_all_notifications')
+    setLoadingNotif(true);
+    const { data, error } = await supabase.rpc("admin_get_all_notifications");
     if (error) {
-      console.error('fetchAllNotifications error:', error.message)
-      toast.error('Could not load all notifications: ' + error.message)
+      console.error("fetchAllNotifications error:", error.message);
+      toast.error("Could not load all notifications: " + error.message);
     } else {
       // RPC returns JSONB — data is already an array or a JSON string
-      const rows = Array.isArray(data) ? data : (typeof data === 'string' ? JSON.parse(data) : data) || []
-      setAllNotifications(rows)
+      const rows = Array.isArray(data)
+        ? data
+        : (typeof data === "string" ? JSON.parse(data) : data) || [];
+      setAllNotifications(rows);
     }
-    setLoadingNotif(false)
-  }, [])
+    setLoadingNotif(false);
+  }, []);
 
   const saveEmailPrefs = async () => {
-    setSavingEmailPrefs(true)
+    setSavingEmailPrefs(true);
     const { error } = await supabase
-      .from('profiles')
+      .from("profiles")
       .update({
         email_notifications_enabled: emailPrefs.email_notifications_enabled,
-        notify_on_deposits:          emailPrefs.notify_on_deposits,
-        notify_on_withdrawals:       emailPrefs.notify_on_withdrawals,
-        notify_on_investments:       emailPrefs.notify_on_investments,
-        notify_on_governance:        emailPrefs.notify_on_governance,
-        updated_at:                  new Date().toISOString(),
+        notify_on_deposits: emailPrefs.notify_on_deposits,
+        notify_on_withdrawals: emailPrefs.notify_on_withdrawals,
+        notify_on_investments: emailPrefs.notify_on_investments,
+        notify_on_governance: emailPrefs.notify_on_governance,
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', profile.id)
-    setSavingEmailPrefs(false)
-    if (error) toast.error('Failed to save: ' + error.message)
-    else toast.success('Email preferences saved ✅')
-  }
+      .eq("id", profile.id);
+    setSavingEmailPrefs(false);
+    if (error) toast.error("Failed to save: " + error.message);
+    else toast.success("Email preferences saved ✅");
+  };
 
   const toggleEmailPref = (key) => {
-    setEmailPrefs(prev => ({ ...prev, [key]: !prev[key] }))
-  }
+    setEmailPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const markAllRead = async () => {
-    await supabase.from('notifications').update({ is_read: true }).eq('user_id', profile.id).eq('is_read', false)
-    fetchNotifications()
-  }
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", profile.id)
+      .eq("is_read", false);
+    fetchNotifications();
+  };
 
   const markRead = async (id) => {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id)
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
-  }
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
+    );
+  };
 
   const deleteNotification = async (id) => {
-    if (!window.confirm('Delete this notification?')) return
-    const { error } = await supabase.rpc('admin_delete_notification', { p_notification_id: id })
-    if (error) toast.error('Delete failed: ' + error.message)
-    else { toast.success('Notification deleted'); fetchNotifications(); if (isAdmin) fetchAllNotifications() }
-  }
+    if (!window.confirm("Delete this notification?")) return;
+    const { error } = await supabase.rpc("admin_delete_notification", {
+      p_notification_id: id,
+    });
+    if (error) toast.error("Delete failed: " + error.message);
+    else {
+      toast.success("Notification deleted");
+      fetchNotifications();
+      if (isAdmin) fetchAllNotifications();
+    }
+  };
 
   const deleteAnyNotification = async (id) => {
-    if (!window.confirm('Delete this notification?')) return
-    const { error } = await supabase.rpc('admin_delete_notification', { p_notification_id: id })
-    if (error) toast.error('Delete failed: ' + error.message)
-    else { toast.success('Notification deleted'); fetchAllNotifications() }
-  }
+    if (!window.confirm("Delete this notification?")) return;
+    const { error } = await supabase.rpc("admin_delete_notification", {
+      p_notification_id: id,
+    });
+    if (error) toast.error("Delete failed: " + error.message);
+    else {
+      toast.success("Notification deleted");
+      fetchAllNotifications();
+    }
+  };
 
   const clearMemberNotifications = async (userId, memberName) => {
-    if (!window.confirm(`Clear ALL notifications for ${memberName}? This cannot be undone.`)) return
-    const { error } = await supabase.rpc('admin_delete_all_notifications', { p_user_id: userId })
-    if (error) toast.error('Failed: ' + error.message)
-    else { toast.success(`Cleared all notifications for ${memberName}`); fetchAllNotifications() }
-  }
+    if (
+      !window.confirm(
+        `Clear ALL notifications for ${memberName}? This cannot be undone.`,
+      )
+    )
+      return;
+    const { error } = await supabase.rpc("admin_delete_all_notifications", {
+      p_user_id: userId,
+    });
+    if (error) toast.error("Failed: " + error.message);
+    else {
+      toast.success(`Cleared all notifications for ${memberName}`);
+      fetchAllNotifications();
+    }
+  };
 
   const clearAllNotifications = async () => {
-    if (!window.confirm(`Clear all ${notifications.length} notification${notifications.length !== 1 ? 's' : ''}? This cannot be undone.`)) return
-    const { error } = await supabase.rpc('admin_delete_all_notifications', { p_user_id: profile.id })
-    if (error) toast.error('Failed: ' + error.message)
-    else { toast.success('All cleared'); fetchNotifications() }
-  }
+    if (
+      !window.confirm(
+        `Clear all ${notifications.length} notification${notifications.length !== 1 ? "s" : ""}? This cannot be undone.`,
+      )
+    )
+      return;
+    const { error } = await supabase.rpc("admin_delete_all_notifications", {
+      p_user_id: profile.id,
+    });
+    if (error) toast.error("Failed: " + error.message);
+    else {
+      toast.success("All cleared");
+      fetchNotifications();
+    }
+  };
 
   const saveProfile = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    const { error } = await updateProfile({ name: form.name, phone: form.phone || null })
-    setSaving(false)
-    if (error) toast.error(error.message)
-    else toast.success('Profile updated!')
-  }
+    e.preventDefault();
+    setSaving(true);
+    const { error } = await updateProfile({
+      name: form.name,
+      phone: form.phone || null,
+    });
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else toast.success("Profile updated!");
+  };
 
   const changePassword = async (e) => {
-    e.preventDefault()
-    if (pwForm.newPw !== pwForm.confirm) { toast.error('Passwords do not match'); return }
-    if (pwForm.newPw.length < 8) { toast.error('Password must be at least 8 characters'); return }
-    setSaving(true)
-    const { error } = await supabase.auth.updateUser({ password: pwForm.newPw })
-    setSaving(false)
-    if (error) toast.error(error.message)
-    else { toast.success('Password changed!'); setPwForm({ current: '', newPw: '', confirm: '' }) }
-  }
+    e.preventDefault();
+    if (pwForm.newPw !== pwForm.confirm) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (pwForm.newPw.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({
+      password: pwForm.newPw,
+    });
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Password changed!");
+      setPwForm({ current: "", newPw: "", confirm: "" });
+    }
+  };
 
   const TABS = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'security', label: 'Security', icon: Lock },
-    ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : []),
-  ]
+    { id: "profile", label: "Profile", icon: User },
+    { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "security", label: "Security", icon: Lock },
+    ...(isAdmin ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
+  ];
 
   // Admin: register new user state
-  const [inviteForm, setInviteForm] = useState({ email: '', name: '', role: 'member', password: '' })
-  const [inviting, setInviting] = useState(false)
-  const [invitations, setInvitations] = useState([])
-  const [reminders, setReminders] = useState([])
-  const [loadingAdmin, setLoadingAdmin] = useState(false)
+  const [inviteForm, setInviteForm] = useState({
+    email: "",
+    name: "",
+    role: "member",
+    password: "",
+  });
+  const [inviting, setInviting] = useState(false);
+  const [invitations, setInvitations] = useState([]);
+  const [reminders, setReminders] = useState([]);
+  const [loadingAdmin, setLoadingAdmin] = useState(false);
 
   const fetchAdminData = useCallback(async () => {
-    if (!isAdmin) return
-    setLoadingAdmin(true)
+    if (!isAdmin) return;
+    setLoadingAdmin(true);
     const [invRes, remRes] = await Promise.all([
-      supabase.from('member_invitations').select('*').order('created_at', { ascending: false }).limit(20),
-      supabase.from('scheduled_reminders').select('*').order('reminder_type'),
-    ])
-    if (invRes.data) setInvitations(invRes.data)
-    if (remRes.data) setReminders(remRes.data)
-    setLoadingAdmin(false)
-  }, [isAdmin])
+      supabase
+        .from("member_invitations")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase.from("scheduled_reminders").select("*").order("reminder_type"),
+    ]);
+    if (invRes.data) setInvitations(invRes.data);
+    if (remRes.data) setReminders(remRes.data);
+    setLoadingAdmin(false);
+  }, [isAdmin]);
 
   useEffect(() => {
-    if (activeTab === 'admin') fetchAdminData()
-  }, [activeTab, fetchAdminData])
+    if (activeTab === "admin") fetchAdminData();
+  }, [activeTab, fetchAdminData]);
 
   const handleRegisterUser = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!inviteForm.email || !inviteForm.name || !inviteForm.password) {
-      toast.error('Email, name and password are required')
-      return
+      toast.error("Email, name and password are required");
+      return;
     }
     if (inviteForm.password.length < 8) {
-      toast.error('Password must be at least 8 characters')
-      return
+      toast.error("Password must be at least 8 characters");
+      return;
     }
-    setInviting(true)
+    setInviting(true);
     try {
       // Create auth user via Supabase admin signUp (uses anon key — works if email confirm is off)
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: inviteForm.email.trim().toLowerCase(),
         password: inviteForm.password,
         options: {
-          data: { name: inviteForm.name.trim(), role: inviteForm.role }
-        }
-      })
-      if (authErr) throw authErr
+          data: { name: inviteForm.name.trim(), role: inviteForm.role },
+        },
+      });
+      if (authErr) throw authErr;
 
       // Profile is created by trigger; update name/role explicitly
       if (authData?.user?.id) {
-        await supabase.from('profiles').upsert({
-          id: authData.user.id,
-          name: inviteForm.name.trim(),
-          email: inviteForm.email.trim().toLowerCase(),
-          role: inviteForm.role,
-        }, { onConflict: 'id' })
+        await supabase.from("profiles").upsert(
+          {
+            id: authData.user.id,
+            name: inviteForm.name.trim(),
+            email: inviteForm.email.trim().toLowerCase(),
+            role: inviteForm.role,
+          },
+          { onConflict: "id" },
+        );
       }
 
       // Record invitation log
-      await supabase.from('member_invitations').insert({
+      await supabase.from("member_invitations").insert({
         email: inviteForm.email.trim().toLowerCase(),
         name: inviteForm.name.trim(),
         role: inviteForm.role,
         invited_by: profile.id,
         accepted_at: new Date().toISOString(),
-      })
+      });
 
       // Audit log
-      await supabase.from('audit_logs').insert({
+      await supabase.from("audit_logs").insert({
         user_id: profile.id,
         action: `Admin registered new user: ${inviteForm.name} (${inviteForm.role})`,
-        table_name: 'profiles',
+        table_name: "profiles",
         record_id: authData?.user?.id,
-        change_type: 'create',
-      })
+        change_type: "create",
+      });
 
-      toast.success(`✅ ${inviteForm.name} has been registered! They can now log in with the provided credentials.`)
-      setInviteForm({ email: '', name: '', role: 'member', password: '' })
-      fetchAdminData()
+      toast.success(
+        `✅ ${inviteForm.name} has been registered! They can now log in with the provided credentials.`,
+      );
+      setInviteForm({ email: "", name: "", role: "member", password: "" });
+      fetchAdminData();
     } catch (err) {
-      toast.error('Registration failed: ' + err.message)
+      toast.error("Registration failed: " + err.message);
     }
-    setInviting(false)
-  }
+    setInviting(false);
+  };
+
+  //NEW ADDTION
+  // ===============================
+  // 📣 SEND BROADCAST NOTIFICATION
+  // ===============================
+  const sendBroadcastNotification = async (e) => {
+    e.preventDefault();
+
+    if (!broadcastForm.title || !broadcastForm.message) {
+      toast.error("Title and message are required");
+      return;
+    }
+
+    setSendingBroadcast(true);
+
+    try {
+      // STEP 1: get users based on target
+      let query = supabase.from("profiles").select("id, role");
+
+      if (broadcastForm.target === "admins") {
+        query = query.eq("role", "admin");
+      }
+
+      if (broadcastForm.target === "members") {
+        query = query.eq("role", "member");
+      }
+
+      const { data: users, error } = await query;
+
+      if (error) throw error;
+
+      // STEP 2: create notifications for each user
+      const notifications = users.map((u) => ({
+        user_id: u.id,
+        title: broadcastForm.title,
+        message: broadcastForm.message,
+        type: "info",
+        action_url: broadcastForm.action_url || null,
+        created_at: new Date().toISOString(),
+      }));
+
+      const { error: insertError } = await supabase
+        .from("notifications")
+        .insert(notifications);
+
+      if (insertError) throw insertError;
+
+      toast.success(`Sent to ${users.length} users 🚀`);
+
+      setBroadcastForm({
+        title: "",
+        message: "",
+        action_url: "",
+        target: "all",
+        scheduled_for: "",
+      });
+
+      fetchAllNotifications();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed: " + err.message);
+    }
+
+    setSendingBroadcast(false);
+  };
+
+  //END NEW ADDTION
 
   const toggleReminder = async (reminder) => {
-    const { error } = await supabase.from('scheduled_reminders')
+    const { error } = await supabase
+      .from("scheduled_reminders")
       .update({ is_active: !reminder.is_active })
-      .eq('id', reminder.id)
-    if (error) toast.error('Update failed')
-    else { toast.success('Reminder updated'); fetchAdminData() }
-  }
+      .eq("id", reminder.id);
+    if (error) toast.error("Update failed");
+    else {
+      toast.success("Reminder updated");
+      fetchAdminData();
+    }
+  };
 
   const updateReminderDay = async (id, day) => {
-    const d = Math.max(1, Math.min(28, Number(day)))
-    const { error } = await supabase.from('scheduled_reminders').update({ day_of_month: d }).eq('id', id)
-    if (!error) fetchAdminData()
-  }
+    const d = Math.max(1, Math.min(28, Number(day)));
+    const { error } = await supabase
+      .from("scheduled_reminders")
+      .update({ day_of_month: d })
+      .eq("id", id);
+    if (!error) fetchAdminData();
+  };
 
   const getNotifColor = (type) => {
-    const map = { success: 'var(--accent-emerald)', warning: 'var(--accent-amber)', error: 'var(--accent-red)', approval: 'var(--olive)', info: 'var(--accent-blue-light)' }
-    return map[type] || 'var(--text-secondary)'
-  }
+    const map = {
+      success: "var(--accent-emerald)",
+      warning: "var(--accent-amber)",
+      error: "var(--accent-red)",
+      approval: "var(--olive)",
+      info: "var(--accent-blue-light)",
+    };
+    return map[type] || "var(--text-secondary)";
+  };
 
   const getNotifIcon = (type) => {
-    const map = { success: '✅', warning: '⚠️', error: '❌', approval: '🔔', info: 'ℹ️' }
-    return map[type] || '📣'
-  }
+    const map = {
+      success: "✅",
+      warning: "⚠️",
+      error: "❌",
+      approval: "🔔",
+      info: "ℹ️",
+    };
+    return map[type] || "📣";
+  };
 
-  const unread = notifications.filter(n => !n.is_read).length
+  const unread = notifications.filter((n) => !n.is_read).length;
+
+  ///NEW PAGES
+  const [notifForm, setNotifForm] = useState({
+    title: "",
+    message: "",
+    action_url: "",
+  });
+  const [sendingNotif, setSendingNotif] = useState(false);
+  const sendSystemNotification = async (e) => {
+    e.preventDefault();
+
+    if (!notifForm.title || !notifForm.message) {
+      toast.error("Title and message are required");
+      return;
+    }
+
+    setSendingNotif(true);
+
+    try {
+      // 1. Get all users
+      const { data: users, error: usersError } = await supabase
+        .from("profiles")
+        .select("id");
+
+      if (usersError) throw usersError;
+
+      // 2. Create notifications for each user
+      const inserts = users.map((u) => ({
+        user_id: u.id,
+        title: notifForm.title,
+        message: notifForm.message,
+        type: "info",
+        action_url: notifForm.action_url || null,
+        created_at: new Date().toISOString(),
+      }));
+
+      const { error: insertError } = await supabase
+        .from("notifications")
+        .insert(inserts);
+
+      if (insertError) throw insertError;
+
+      toast.success(`Notification sent to ${users.length} users 🎉`);
+
+      setNotifForm({
+        title: "",
+        message: "",
+        action_url: "",
+      });
+
+      // refresh admin view
+      fetchAllNotifications();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed: " + err.message);
+    }
+
+    setSendingNotif(false);
+  };
+
+  // ===============================
+  // 📣 NOTIFICATION BROADCAST STATE
+  // ===============================
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: "",
+    message: "",
+    action_url: "",
+    target: "all", // all | admins | members | selected
+    scheduled_for: "",
+  });
+
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
 
   return (
-    <div style={{ maxWidth: '100%' }}>
+    <div style={{ maxWidth: "100%" }}>
       <PageHeader
         title="Settings"
         subtitle="Manage your account and preferences"
       />
 
       {/* Profile header with photo upload */}
-      <div className="card mb-6" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+      <div
+        className="card mb-6"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
         {/* Avatar with camera overlay */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{ position: "relative", flexShrink: 0 }}>
           <MemberAvatar
             name={profile?.name}
             avatarUrl={profile?.avatar_url}
@@ -375,37 +621,69 @@ export default function SettingsPage() {
             disabled={uploadingPhoto}
             title="Change profile photo"
             style={{
-              position: 'absolute', bottom: -2, right: -2,
-              width: 22, height: 22, borderRadius: '50%',
-              background: uploadingPhoto ? 'var(--accent-amber)' : 'var(--olive)',
-              border: '2px solid #fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: uploadingPhoto ? 'default' : 'pointer', padding: 0
+              position: "absolute",
+              bottom: -2,
+              right: -2,
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              background: uploadingPhoto
+                ? "var(--accent-amber)"
+                : "var(--olive)",
+              border: "2px solid #fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: uploadingPhoto ? "default" : "pointer",
+              padding: 0,
             }}
           >
-            {uploadingPhoto
-              ? <div className="spinner" style={{ width: 10, height: 10, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
-              : <Camera size={11} color="#fff" />
-            }
+            {uploadingPhoto ? (
+              <div
+                className="spinner"
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderColor: "rgba(255,255,255,0.3)",
+                  borderTopColor: "#fff",
+                }}
+              />
+            ) : (
+              <Camera size={11} color="#fff" />
+            )}
           </button>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
             onChange={handlePhotoUpload}
           />
         </div>
         <div>
           <h3 style={{ fontWeight: 700, fontSize: 16 }}>{profile?.name}</h3>
           <p className="text-sm text-muted">{profile?.email}</p>
-          <span className={`badge badge-${profile?.role === 'admin' ? 'amber' : 'blue'}`} style={{ marginTop: 4 }}>{profile?.role}</span>
+          <span
+            className={`badge badge-${profile?.role === "admin" ? "amber" : "blue"}`}
+            style={{ marginTop: 4 }}
+          >
+            {profile?.role}
+          </span>
           {uploadingPhoto ? (
-            <p style={{ fontSize: 11, color: 'var(--accent-amber)', marginTop: 6, fontWeight: 600 }}>
-              {uploadProgress || 'Processing…'}
+            <p
+              style={{
+                fontSize: 11,
+                color: "var(--accent-amber)",
+                marginTop: 6,
+                fontWeight: 600,
+              }}
+            >
+              {uploadProgress || "Processing…"}
             </p>
           ) : (
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+            <p
+              style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}
+            >
               Click the camera icon to update your photo
             </p>
           )}
@@ -414,26 +692,37 @@ export default function SettingsPage() {
 
       {/* Tabs */}
       <div className="page-tab-bar" style={{ marginBottom: 20 }}>
-        {TABS.map(tab => (
+        {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px',
-              border: 'none',
-              borderBottom: activeTab === tab.id ? '2px solid var(--olive)' : '2px solid transparent',
-              background: 'none',
-              color: activeTab === tab.id ? 'var(--olive-light)' : 'var(--text-muted)',
-              fontFamily: 'var(--font-main)',
-              fontSize: 14, fontWeight: 600,
-              cursor: 'pointer', transition: 'all 0.2s',
-              position: 'relative', bottom: -1
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "10px 16px",
+              border: "none",
+              borderBottom:
+                activeTab === tab.id
+                  ? "2px solid var(--olive)"
+                  : "2px solid transparent",
+              background: "none",
+              color:
+                activeTab === tab.id
+                  ? "var(--olive-light)"
+                  : "var(--text-muted)",
+              fontFamily: "var(--font-main)",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.2s",
+              position: "relative",
+              bottom: -1,
             }}
           >
             <tab.icon size={14} />
             {tab.label}
-            {tab.id === 'notifications' && unread > 0 && (
+            {tab.id === "notifications" && unread > 0 && (
               <span className="nav-badge">{unread}</span>
             )}
           </button>
@@ -441,25 +730,52 @@ export default function SettingsPage() {
       </div>
 
       {/* Profile tab */}
-      {activeTab === 'profile' && (
+      {activeTab === "profile" && (
         <div className="card">
-          <h3 style={{ fontWeight: 700, marginBottom: 20 }}>Personal Information</h3>
+          <h3 style={{ fontWeight: 700, marginBottom: 20 }}>
+            Personal Information
+          </h3>
           <form onSubmit={saveProfile}>
             <div className="form-group">
               <label className="form-label">Full Name</label>
-              <input className="form-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required />
+              <input
+                className="form-input"
+                value={form.name}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
+                required
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Email Address</label>
-              <input className="form-input" value={profile?.email || ''} disabled style={{ opacity: 0.5 }} />
-              <p className="form-error" style={{ color: 'var(--text-muted)' }}>Email cannot be changed here</p>
+              <input
+                className="form-input"
+                value={profile?.email || ""}
+                disabled
+                style={{ opacity: 0.5 }}
+              />
+              <p className="form-error" style={{ color: "var(--text-muted)" }}>
+                Email cannot be changed here
+              </p>
             </div>
             <div className="form-group">
               <label className="form-label">Phone Number (optional)</label>
-              <input className="form-input" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+254 700 000 000" />
+              <input
+                className="form-input"
+                value={form.phone}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, phone: e.target.value }))
+                }
+                placeholder="+254 700 000 000"
+              />
             </div>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? <div className="spinner" style={{ width: 14, height: 14 }} /> : <Save size={14} />}
+              {saving ? (
+                <div className="spinner" style={{ width: 14, height: 14 }} />
+              ) : (
+                <Save size={14} />
+              )}
               Save Changes
             </button>
           </form>
@@ -467,63 +783,188 @@ export default function SettingsPage() {
       )}
 
       {/* Notifications tab */}
-      {activeTab === 'notifications' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
+      {activeTab === "notifications" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* ── EMAIL PREFERENCES CARD ── */}
           <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(26,36,114,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Mail size={16} style={{ color: 'var(--navy-light)' }} />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 18,
+              }}
+            >
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 9,
+                  background: "rgba(26,36,114,0.08)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Mail size={16} style={{ color: "var(--navy-light)" }} />
               </div>
               <div>
-                <h3 style={{ fontWeight: 700, fontSize: 15 }}>Email Notifications</h3>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>Sent to <strong>{profile?.email}</strong></p>
+                <h3 style={{ fontWeight: 700, fontSize: 15 }}>
+                  Email Notifications
+                </h3>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginTop: 1,
+                  }}
+                >
+                  Sent to <strong>{profile?.email}</strong>
+                </p>
               </div>
             </div>
 
             {/* Master toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 10, background: emailPrefs.email_notifications_enabled ? 'rgba(90,138,30,0.06)' : 'var(--bg-elevated)', border: `1px solid ${emailPrefs.email_notifications_enabled ? 'rgba(90,138,30,0.2)' : 'var(--border)'}`, marginBottom: 14, cursor: 'pointer' }}
-              onClick={() => toggleEmailPref('email_notifications_enabled')}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 14px",
+                borderRadius: 10,
+                background: emailPrefs.email_notifications_enabled
+                  ? "rgba(90,138,30,0.06)"
+                  : "var(--bg-elevated)",
+                border: `1px solid ${emailPrefs.email_notifications_enabled ? "rgba(90,138,30,0.2)" : "var(--border)"}`,
+                marginBottom: 14,
+                cursor: "pointer",
+              }}
+              onClick={() => toggleEmailPref("email_notifications_enabled")}
+            >
               <div>
-                <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-                  {emailPrefs.email_notifications_enabled ? '🔔 Email alerts ON' : '🔕 Email alerts OFF'}
-                </p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                <p
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 14,
+                    color: "var(--text-primary)",
+                  }}
+                >
                   {emailPrefs.email_notifications_enabled
-                    ? 'You will receive important notifications by email'
-                    : 'No emails will be sent — in-app only'}
+                    ? "🔔 Email alerts ON"
+                    : "🔕 Email alerts OFF"}
+                </p>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginTop: 2,
+                  }}
+                >
+                  {emailPrefs.email_notifications_enabled
+                    ? "You will receive important notifications by email"
+                    : "No emails will be sent — in-app only"}
                 </p>
               </div>
-              {emailPrefs.email_notifications_enabled
-                ? <ToggleRight size={28} style={{ color: 'var(--olive)', flexShrink: 0 }} />
-                : <ToggleLeft  size={28} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
+              {emailPrefs.email_notifications_enabled ? (
+                <ToggleRight
+                  size={28}
+                  style={{ color: "var(--olive)", flexShrink: 0 }}
+                />
+              ) : (
+                <ToggleLeft
+                  size={28}
+                  style={{ color: "var(--text-muted)", flexShrink: 0 }}
+                />
+              )}
             </div>
 
             {/* Per-type toggles */}
             {emailPrefs.email_notifications_enabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  marginBottom: 16,
+                }}
+              >
                 {[
-                  { key: 'notify_on_deposits',     label: 'Deposits & contributions', emoji: '💰', desc: 'When any member deposits funds' },
-                  { key: 'notify_on_withdrawals',  label: 'Withdrawal approvals',     emoji: '💸', desc: 'Approval requests and outcomes' },
-                  { key: 'notify_on_investments',  label: 'Investment updates',       emoji: '📈', desc: 'New investments, returns, dividends' },
-                  { key: 'notify_on_governance',   label: 'Governance votes',         emoji: '🗳️', desc: 'Proposals requiring your vote' },
+                  {
+                    key: "notify_on_deposits",
+                    label: "Deposits & contributions",
+                    emoji: "💰",
+                    desc: "When any member deposits funds",
+                  },
+                  {
+                    key: "notify_on_withdrawals",
+                    label: "Withdrawal approvals",
+                    emoji: "💸",
+                    desc: "Approval requests and outcomes",
+                  },
+                  {
+                    key: "notify_on_investments",
+                    label: "Investment updates",
+                    emoji: "📈",
+                    desc: "New investments, returns, dividends",
+                  },
+                  {
+                    key: "notify_on_governance",
+                    label: "Governance votes",
+                    emoji: "🗳️",
+                    desc: "Proposals requiring your vote",
+                  },
                 ].map(({ key, label, emoji, desc }) => (
-                  <div key={key}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 8, cursor: 'pointer', transition: 'background 0.12s' }}
+                  <div
+                    key={key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      transition: "background 0.12s",
+                    }}
                     onClick={() => toggleEmailPref(key)}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>{emoji}</span>
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "var(--bg-elevated)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 10 }}
+                    >
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>
+                        {emoji}
+                      </span>
                       <div>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{label}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{desc}</p>
+                        <p
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {label}
+                        </p>
+                        <p style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                          {desc}
+                        </p>
                       </div>
                     </div>
-                    {emailPrefs[key]
-                      ? <ToggleRight size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} />
-                      : <ToggleLeft  size={22} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
+                    {emailPrefs[key] ? (
+                      <ToggleRight
+                        size={22}
+                        style={{ color: "var(--olive)", flexShrink: 0 }}
+                      />
+                    ) : (
+                      <ToggleLeft
+                        size={22}
+                        style={{ color: "var(--text-muted)", flexShrink: 0 }}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -533,109 +974,320 @@ export default function SettingsPage() {
               className="btn btn-primary btn-sm"
               onClick={saveEmailPrefs}
               disabled={savingEmailPrefs}
-              style={{ width: '100%', justifyContent: 'center' }}>
-              {savingEmailPrefs
-                ? <><div className="spinner" style={{ width: 13, height: 13 }} /> Saving…</>
-                : <><Save size={13} /> Save Email Preferences</>}
+              style={{ width: "100%", justifyContent: "center" }}
+            >
+              {savingEmailPrefs ? (
+                <>
+                  <div className="spinner" style={{ width: 13, height: 13 }} />{" "}
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Save size={13} /> Save Email Preferences
+                </>
+              )}
             </button>
           </div>
 
           {/* ── IN-APP NOTIFICATION LIST ── */}
           <div className="card">
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 14,
+              }}
+            >
               <h3 style={{ fontWeight: 700 }}>
                 In-App Notifications
-                {notifView === 'mine' && unread > 0 && <span className="badge badge-red" style={{ marginLeft: 8 }}>{unread} new</span>}
-                {notifView === 'all' && <span className="badge badge-blue" style={{ marginLeft: 8 }}>{allNotifications.length} total</span>}
+                {notifView === "mine" && unread > 0 && (
+                  <span className="badge badge-red" style={{ marginLeft: 8 }}>
+                    {unread} new
+                  </span>
+                )}
+                {notifView === "all" && (
+                  <span className="badge badge-blue" style={{ marginLeft: 8 }}>
+                    {allNotifications.length} total
+                  </span>
+                )}
               </h3>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <button className="btn btn-secondary btn-sm"
-                  onClick={() => { fetchNotifications(); if (isAdmin) fetchAllNotifications() }}
-                  disabled={loadingNotif}>
-                  <RefreshCw size={12} style={{ animation: loadingNotif ? 'spin 0.7s linear infinite' : 'none' }} /> Refresh
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    fetchNotifications();
+                    if (isAdmin) fetchAllNotifications();
+                  }}
+                  disabled={loadingNotif}
+                >
+                  <RefreshCw
+                    size={12}
+                    style={{
+                      animation: loadingNotif
+                        ? "spin 0.7s linear infinite"
+                        : "none",
+                    }}
+                  />{" "}
+                  Refresh
                 </button>
-                {notifView === 'mine' && unread > 0 && (
-                  <button className="btn btn-secondary btn-sm" onClick={markAllRead}><Check size={13} /> Mark all read</button>
+                {notifView === "mine" && unread > 0 && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={markAllRead}
+                  >
+                    <Check size={13} /> Mark all read
+                  </button>
                 )}
-                {isAdmin && notifView === 'mine' && notifications.length > 0 && (
-                  <button className="btn btn-danger btn-sm" onClick={clearAllNotifications}>🗑️ Clear Mine</button>
-                )}
+                {isAdmin &&
+                  notifView === "mine" &&
+                  notifications.length > 0 && (
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={clearAllNotifications}
+                    >
+                      🗑️ Clear Mine
+                    </button>
+                  )}
               </div>
             </div>
 
             {/* Admin view toggle */}
             {isAdmin && (
-              <div style={{ display: 'flex', gap: 4, marginBottom: 14, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
-                {[['mine', '👤 My Notifications'], ['all', '👥 All Members']].map(([v, label]) => (
-                  <button key={v} onClick={() => { setNotifView(v); if (v === 'all') fetchAllNotifications() }} style={{
-                    padding: '7px 14px', border: 'none', background: 'none', cursor: 'pointer',
-                    fontFamily: 'var(--font-main)', fontSize: 13, fontWeight: 600,
-                    borderBottom: notifView === v ? '2px solid var(--olive)' : '2px solid transparent',
-                    color: notifView === v ? 'var(--olive)' : 'var(--text-muted)',
-                    position: 'relative', bottom: -1,
-                  }}>{label}</button>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 4,
+                  marginBottom: 14,
+                  borderBottom: "1px solid var(--border)",
+                  paddingBottom: 0,
+                }}
+              >
+                {[
+                  ["mine", "👤 My Notifications"],
+                  ["all", "👥 All Members"],
+                ].map(([v, label]) => (
+                  <button
+                    key={v}
+                    onClick={() => {
+                      setNotifView(v);
+                      if (v === "all") fetchAllNotifications();
+                    }}
+                    style={{
+                      padding: "7px 14px",
+                      border: "none",
+                      background: "none",
+                      cursor: "pointer",
+                      fontFamily: "var(--font-main)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      borderBottom:
+                        notifView === v
+                          ? "2px solid var(--olive)"
+                          : "2px solid transparent",
+                      color:
+                        notifView === v ? "var(--olive)" : "var(--text-muted)",
+                      position: "relative",
+                      bottom: -1,
+                    }}
+                  >
+                    {label}
+                  </button>
                 ))}
               </div>
             )}
 
             {/* ── ALL MEMBERS VIEW (admin only) ── */}
-            {isAdmin && notifView === 'all' && (
+            {isAdmin && notifView === "all" && (
               <>
                 {/* Member filter + clear all */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <select className="form-select" style={{ flex: 1 }} value={filterMember} onChange={e => setFilterMember(e.target.value)}>
-                    <option value="">All Members ({allNotifications.length})</option>
-                    {[...new Map(allNotifications.map(n => [n.user_id, n.member_name])).entries()].map(([uid, name]) => (
-                      <option key={uid} value={uid}>{name} ({allNotifications.filter(n => n.user_id === uid).length})</option>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginBottom: 12,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                  }}
+                >
+                  <select
+                    className="form-select"
+                    style={{ flex: 1 }}
+                    value={filterMember}
+                    onChange={(e) => setFilterMember(e.target.value)}
+                  >
+                    <option value="">
+                      All Members ({allNotifications.length})
+                    </option>
+                    {[
+                      ...new Map(
+                        allNotifications.map((n) => [n.user_id, n.member_name]),
+                      ).entries(),
+                    ].map(([uid, name]) => (
+                      <option key={uid} value={uid}>
+                        {name} (
+                        {
+                          allNotifications.filter((n) => n.user_id === uid)
+                            .length
+                        }
+                        )
+                      </option>
                     ))}
                   </select>
                   {filterMember && (
-                    <button className="btn btn-danger btn-sm" onClick={() => {
-                      const name = allNotifications.find(n => n.user_id === filterMember)?.member_name || 'member'
-                      clearMemberNotifications(filterMember, name)
-                    }}>
-                      🗑️ Clear {allNotifications.find(n => n.user_id === filterMember)?.member_name?.split(' ')[0]}'s
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => {
+                        const name =
+                          allNotifications.find(
+                            (n) => n.user_id === filterMember,
+                          )?.member_name || "member";
+                        clearMemberNotifications(filterMember, name);
+                      }}
+                    >
+                      🗑️ Clear{" "}
+                      {
+                        allNotifications
+                          .find((n) => n.user_id === filterMember)
+                          ?.member_name?.split(" ")[0]
+                      }
+                      's
                     </button>
                   )}
                 </div>
 
                 {loadingNotif ? (
-                  <div className="flex justify-center" style={{ padding: 32 }}><div className="spinner" style={{ width: 24, height: 24 }} /></div>
-                ) : allNotifications.filter(n => !filterMember || n.user_id === filterMember).length === 0 ? (
-                  <div className="empty-state"><Bell size={32} style={{ opacity: 0.3 }} /><p>No notifications</p></div>
+                  <div className="flex justify-center" style={{ padding: 32 }}>
+                    <div
+                      className="spinner"
+                      style={{ width: 24, height: 24 }}
+                    />
+                  </div>
+                ) : allNotifications.filter(
+                    (n) => !filterMember || n.user_id === filterMember,
+                  ).length === 0 ? (
+                  <div className="empty-state">
+                    <Bell size={32} style={{ opacity: 0.3 }} />
+                    <p>No notifications</p>
+                  </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: 6 }}
+                  >
                     {allNotifications
-                      .filter(n => !filterMember || n.user_id === filterMember)
-                      .map(n => (
-                        <div key={n.id} style={{
-                          padding: '10px 12px', borderRadius: 8,
-                          background: n.is_read ? 'var(--bg-elevated)' : 'rgba(122,140,58,0.05)',
-                          border: `1px solid ${n.is_read ? 'var(--border)' : 'rgba(122,140,58,0.2)'}`,
-                          display: 'flex', alignItems: 'flex-start', gap: 10,
-                        }}>
+                      .filter(
+                        (n) => !filterMember || n.user_id === filterMember,
+                      )
+                      .map((n) => (
+                        <div
+                          key={n.id}
+                          style={{
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                            background: n.is_read
+                              ? "var(--bg-elevated)"
+                              : "rgba(122,140,58,0.05)",
+                            border: `1px solid ${n.is_read ? "var(--border)" : "rgba(122,140,58,0.2)"}`,
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 10,
+                          }}
+                        >
                           {/* Member avatar */}
-                          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', flexShrink: 0 }}>
-                            {n.member_name?.charAt(0) || '?'}
+                          <div
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: "50%",
+                              background: "var(--bg-hover)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "var(--text-secondary)",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {n.member_name?.charAt(0) || "?"}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, flexWrap: 'wrap' }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "flex-start",
+                                gap: 6,
+                                flexWrap: "wrap",
+                              }}
+                            >
                               <div>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginRight: 6 }}>
-                                  {n.member_name?.split(' ')[0]}
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: "var(--text-muted)",
+                                    marginRight: 6,
+                                  }}
+                                >
+                                  {n.member_name?.split(" ")[0]}
                                 </span>
-                                <span style={{ fontSize: 13, fontWeight: n.is_read ? 500 : 700 }}>{n.title}</span>
+                                <span
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: n.is_read ? 500 : 700,
+                                  }}
+                                >
+                                  {n.title}
+                                </span>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                                {!n.is_read && <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--olive)' }} />}
-                                <span onClick={e => e.stopPropagation()}>
-                                  <AdminActions onDelete={() => deleteAnyNotification(n.id)} size="xs" />
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {!n.is_read && (
+                                  <div
+                                    style={{
+                                      width: 7,
+                                      height: 7,
+                                      borderRadius: "50%",
+                                      background: "var(--olive)",
+                                    }}
+                                  />
+                                )}
+                                <span onClick={(e) => e.stopPropagation()}>
+                                  <AdminActions
+                                    onDelete={() => deleteAnyNotification(n.id)}
+                                    size="xs"
+                                  />
                                 </span>
                               </div>
                             </div>
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{n.message}</p>
-                            <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{formatDateTime(n.created_at)}</p>
+                            <p
+                              style={{
+                                fontSize: 12,
+                                color: "var(--text-muted)",
+                                marginTop: 2,
+                              }}
+                            >
+                              {n.message}
+                            </p>
+                            <p
+                              style={{
+                                fontSize: 10,
+                                color: "var(--text-muted)",
+                                marginTop: 4,
+                              }}
+                            >
+                              {formatDateTime(n.created_at)}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -645,81 +1297,171 @@ export default function SettingsPage() {
             )}
 
             {/* ── MY NOTIFICATIONS VIEW ── */}
-            {notifView === 'mine' && (
+            {notifView === "mine" && (
               <>
-          {loadingNotif ? (
-            <div className="flex justify-center" style={{ padding: 32 }}><div className="spinner" style={{ width: 24, height: 24 }} /></div>
-          ) : notifications.length === 0 ? (
-            <div className="empty-state"><Bell size={32} style={{ opacity: 0.3 }} /><p>No notifications yet</p></div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {notifications.map(n => {
-                const isApproval = n.type === 'approval'
-                const hasLink = !!n.action_url
-
-                const handleCardClick = async () => {
-                  if (!n.is_read) await markRead(n.id)
-                }
-
-                const handleReviewClick = async (e) => {
-                  e.stopPropagation()
-                  if (!n.is_read) await markRead(n.id)
-                  if (n.action_url) navigate(n.action_url)
-                }
-
-                return (
+                {loadingNotif ? (
+                  <div className="flex justify-center" style={{ padding: 32 }}>
+                    <div
+                      className="spinner"
+                      style={{ width: 24, height: 24 }}
+                    />
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="empty-state">
+                    <Bell size={32} style={{ opacity: 0.3 }} />
+                    <p>No notifications yet</p>
+                  </div>
+                ) : (
                   <div
-                    key={n.id}
-                    onClick={handleCardClick}
-                    style={{
-                      padding: 14, borderRadius: 10, cursor: 'pointer',
-                      background: n.is_read ? 'transparent' : isApproval ? 'rgba(230,144,10,0.06)' : 'rgba(122,140,58,0.05)',
-                      border: `1px solid ${n.is_read ? 'var(--border)' : isApproval ? 'rgba(230,144,10,0.22)' : 'rgba(122,140,58,0.15)'}`,
-                      transition: 'all 0.15s',
-                    }}
+                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
                   >
-                    <div className="flex items-start gap-3">
-                      <span style={{ fontSize: 18, flexShrink: 0 }}>{getNotifIcon(n.type)}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="flex justify-between items-start gap-2">
-                          <p style={{ fontWeight: n.is_read ? 500 : 700, fontSize: 14, color: n.is_read ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
-                            {n.title}
-                          </p>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                            {!n.is_read && (
-                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: isApproval ? 'var(--accent-amber)' : 'var(--olive)', flexShrink: 0 }} />
-                            )}
-                            {hasLink && (
-                              <button
-                                onClick={handleReviewClick}
-                                style={{ fontSize: 11, color: 'var(--olive)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--font-main)' }}
+                    {notifications.map((n) => {
+                      const isApproval = n.type === "approval";
+                      const hasLink = !!n.action_url;
+
+                      const handleCardClick = async () => {
+                        if (!n.is_read) await markRead(n.id);
+                      };
+
+                      const handleReviewClick = async (e) => {
+                        e.stopPropagation();
+                        if (!n.is_read) await markRead(n.id);
+                        if (n.action_url) navigate(n.action_url);
+                      };
+
+                      return (
+                        <div
+                          key={n.id}
+                          onClick={handleCardClick}
+                          style={{
+                            padding: 14,
+                            borderRadius: 10,
+                            cursor: "pointer",
+                            background: n.is_read
+                              ? "transparent"
+                              : isApproval
+                                ? "rgba(230,144,10,0.06)"
+                                : "rgba(122,140,58,0.05)",
+                            border: `1px solid ${n.is_read ? "var(--border)" : isApproval ? "rgba(230,144,10,0.22)" : "rgba(122,140,58,0.15)"}`,
+                            transition: "all 0.15s",
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span style={{ fontSize: 18, flexShrink: 0 }}>
+                              {getNotifIcon(n.type)}
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div className="flex justify-between items-start gap-2">
+                                <p
+                                  style={{
+                                    fontWeight: n.is_read ? 500 : 700,
+                                    fontSize: 14,
+                                    color: n.is_read
+                                      ? "var(--text-secondary)"
+                                      : "var(--text-primary)",
+                                  }}
+                                >
+                                  {n.title}
+                                </p>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {!n.is_read && (
+                                    <div
+                                      style={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: "50%",
+                                        background: isApproval
+                                          ? "var(--accent-amber)"
+                                          : "var(--olive)",
+                                        flexShrink: 0,
+                                      }}
+                                    />
+                                  )}
+                                  {hasLink && (
+                                    <button
+                                      onClick={handleReviewClick}
+                                      style={{
+                                        fontSize: 11,
+                                        color: "var(--olive)",
+                                        fontWeight: 600,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 3,
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        padding: "2px 0",
+                                        fontFamily: "var(--font-main)",
+                                      }}
+                                    >
+                                      <ExternalLink size={11} /> Review
+                                    </button>
+                                  )}
+                                  {isAdmin && (
+                                    <span onClick={(e) => e.stopPropagation()}>
+                                      <AdminActions
+                                        onDelete={() =>
+                                          deleteNotification(n.id)
+                                        }
+                                        size="xs"
+                                      />
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <p
+                                style={{
+                                  fontSize: 13,
+                                  color: "var(--text-muted)",
+                                  marginTop: 2,
+                                }}
                               >
-                                <ExternalLink size={11} /> Review
-                              </button>
-                            )}
-                            {isAdmin && (
-                              <span onClick={e => e.stopPropagation()}>
-                                <AdminActions onDelete={() => deleteNotification(n.id)} size="xs" />
-                              </span>
-                            )}
+                                {n.message}
+                              </p>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  marginTop: 6,
+                                }}
+                              >
+                                <p className="text-xs text-muted">
+                                  {formatDateTime(n.created_at)}
+                                </p>
+                                {n.email_sent && (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 3,
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      color: "var(--navy-light)",
+                                      background: "rgba(58,77,181,0.08)",
+                                      border: "1px solid rgba(58,77,181,0.15)",
+                                      borderRadius: 99,
+                                      padding: "1px 7px",
+                                    }}
+                                  >
+                                    <Mail size={9} /> emailed
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{n.message}</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                          <p className="text-xs text-muted">{formatDateTime(n.created_at)}</p>
-                          {n.email_sent && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: 'var(--navy-light)', background: 'rgba(58,77,181,0.08)', border: '1px solid rgba(58,77,181,0.15)', borderRadius: 99, padding: '1px 7px' }}>
-                              <Mail size={9} /> emailed
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
-                )
-              })}
-            </div>
-          )}
+                )}
               </>
             )}
           </div>
@@ -727,33 +1469,74 @@ export default function SettingsPage() {
       )}
 
       {/* Security tab */}
-      {activeTab === 'security' && (
+      {activeTab === "security" && (
         <div className="card">
           <h3 style={{ fontWeight: 700, marginBottom: 20 }}>Change Password</h3>
           <form onSubmit={changePassword}>
             <div className="form-group">
               <label className="form-label">New Password</label>
-              <input className="form-input" type="password" value={pwForm.newPw} onChange={e => setPwForm(p => ({ ...p, newPw: e.target.value }))} placeholder="At least 8 characters" required minLength={8} />
+              <input
+                className="form-input"
+                type="password"
+                value={pwForm.newPw}
+                onChange={(e) =>
+                  setPwForm((p) => ({ ...p, newPw: e.target.value }))
+                }
+                placeholder="At least 8 characters"
+                required
+                minLength={8}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Confirm New Password</label>
-              <input className="form-input" type="password" value={pwForm.confirm} onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))} placeholder="Repeat new password" required />
+              <input
+                className="form-input"
+                type="password"
+                value={pwForm.confirm}
+                onChange={(e) =>
+                  setPwForm((p) => ({ ...p, confirm: e.target.value }))
+                }
+                placeholder="Repeat new password"
+                required
+              />
             </div>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? <div className="spinner" style={{ width: 14, height: 14 }} /> : <Lock size={14} />}
+              {saving ? (
+                <div className="spinner" style={{ width: 14, height: 14 }} />
+              ) : (
+                <Lock size={14} />
+              )}
               Update Password
             </button>
           </form>
 
           <div className="divider" />
-          <h3 style={{ fontWeight: 700, marginBottom: 12 }}>Account Information</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <h3 style={{ fontWeight: 700, marginBottom: 12 }}>
+            Account Information
+          </h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { label: 'Account ID', value: profile?.id?.substring(0, 18) + '…' },
-              { label: 'Role', value: profile?.role },
-              { label: 'Member Since', value: profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : '—' },
-            ].map(item => (
-              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+              {
+                label: "Account ID",
+                value: profile?.id?.substring(0, 18) + "…",
+              },
+              { label: "Role", value: profile?.role },
+              {
+                label: "Member Since",
+                value: profile?.created_at
+                  ? new Date(profile.created_at).toLocaleDateString()
+                  : "—",
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "8px 0",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
                 <span className="text-sm text-secondary">{item.label}</span>
                 <span className="text-sm text-mono">{item.value}</span>
               </div>
@@ -762,18 +1545,223 @@ export default function SettingsPage() {
         </div>
       )}
       {/* Admin tab */}
-      {activeTab === 'admin' && isAdmin && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {activeTab === "admin" && isAdmin && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* =============================== */}
+          {/* 📣 BROADCAST NOTIFICATION */}
+          {/* =============================== */}
+          <div className="card">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 16,
+              }}
+            >
+              <Bell size={16} style={{ color: "var(--olive)" }} />
+              <h3 style={{ fontWeight: 700, fontSize: 15 }}>
+                Send System Notification
+              </h3>
+            </div>
 
+            <form onSubmit={sendBroadcastNotification}>
+              {/* TITLE */}
+              <div className="form-group">
+                <label className="form-label">Title</label>
+                <input
+                  className="form-input"
+                  value={broadcastForm.title}
+                  onChange={(e) =>
+                    setBroadcastForm((p) => ({ ...p, title: e.target.value }))
+                  }
+                  placeholder="e.g. System Update"
+                  required
+                />
+              </div>
+
+              {/* MESSAGE */}
+              <div className="form-group">
+                <label className="form-label">Message</label>
+                <textarea
+                  className="form-input"
+                  rows="3"
+                  value={broadcastForm.message}
+                  onChange={(e) =>
+                    setBroadcastForm((p) => ({ ...p, message: e.target.value }))
+                  }
+                  placeholder="Write announcement..."
+                  required
+                />
+              </div>
+
+              {/* TARGET USERS */}
+              <div className="form-group">
+                <label className="form-label">Send To</label>
+                <select
+                  className="form-select"
+                  value={broadcastForm.target}
+                  onChange={(e) =>
+                    setBroadcastForm((p) => ({ ...p, target: e.target.value }))
+                  }
+                >
+                  <option value="all">All Users</option>
+                  <option value="admins">Admins Only</option>
+                  <option value="members">Members Only</option>
+                </select>
+              </div>
+
+              {/* ACTION LINK */}
+              <div className="form-group">
+                <label className="form-label">Action URL (optional)</label>
+                <input
+                  className="form-input"
+                  value={broadcastForm.action_url}
+                  onChange={(e) =>
+                    setBroadcastForm((p) => ({
+                      ...p,
+                      action_url: e.target.value,
+                    }))
+                  }
+                  placeholder="https://finance.geotreks.co.ke"
+                />
+              </div>
+
+              {/* SEND BUTTON */}
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={sendingBroadcast}
+                style={{ width: "100%", justifyContent: "center" }}
+              >
+                {sendingBroadcast ? (
+                  <>
+                    <div
+                      className="spinner"
+                      style={{ width: 14, height: 14 }}
+                    />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail size={14} />
+                    Send Notification to Users
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+          {/* System notification sender (admin only) */}
+          {/* <div className="card">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 16,
+              }}
+            >
+              <Bell size={16} style={{ color: "var(--olive)" }} />
+              <h3 style={{ fontWeight: 700, fontSize: 15 }}>
+                Send System Notification
+              </h3>
+            </div>
+
+            <form onSubmit={sendSystemNotification}>
+              <div className="form-group">
+                <label className="form-label">Title</label>
+                <input
+                  className="form-input"
+                  value={notifForm.title}
+                  onChange={(e) =>
+                    setNotifForm((p) => ({ ...p, title: e.target.value }))
+                  }
+                  placeholder="e.g. System Maintenance Update"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Message</label>
+                <textarea
+                  className="form-input"
+                  rows="3"
+                  value={notifForm.message}
+                  onChange={(e) =>
+                    setNotifForm((p) => ({ ...p, message: e.target.value }))
+                  }
+                  placeholder="Write your announcement..."
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Action URL (optional)</label>
+                <input
+                  className="form-input"
+                  value={notifForm.action_url}
+                  onChange={(e) =>
+                    setNotifForm((p) => ({ ...p, action_url: e.target.value }))
+                  }
+                  placeholder="https://finance.geotreks.co.ke"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={sendingNotif}
+                style={{ width: "100%", justifyContent: "center" }}
+              >
+                {sendingNotif ? (
+                  <>
+                    <div
+                      className="spinner"
+                      style={{ width: 14, height: 14 }}
+                    />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail size={14} />
+                    Send to All Members
+                  </>
+                )}
+              </button>
+            </form>
+          </div> */}
+
+          {/* //END NEW ADDTIONS */}
           {/* Register new user */}
           <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-              <UserPlus size={16} style={{ color: 'var(--olive)' }} />
-              <h3 style={{ fontWeight: 700, fontSize: 15 }}>Register New Member</h3>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 18,
+              }}
+            >
+              <UserPlus size={16} style={{ color: "var(--olive)" }} />
+              <h3 style={{ fontWeight: 700, fontSize: 15 }}>
+                Register New Member
+              </h3>
             </div>
-            <div style={{ background: 'rgba(90,138,30,0.07)', border: '1px solid rgba(90,138,30,0.2)', borderRadius: 8, padding: 10, marginBottom: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
-              ℹ️ Creates a Supabase auth account and member profile. The new member can log in immediately with the credentials you set.
-              If email confirmation is enabled in Supabase, they must confirm their email first.
+            <div
+              style={{
+                background: "rgba(90,138,30,0.07)",
+                border: "1px solid rgba(90,138,30,0.2)",
+                borderRadius: 8,
+                padding: 10,
+                marginBottom: 16,
+                fontSize: 13,
+                color: "var(--text-secondary)",
+              }}
+            >
+              ℹ️ Creates a Supabase auth account and member profile. The new
+              member can log in immediately with the credentials you set. If
+              email confirmation is enabled in Supabase, they must confirm their
+              email first.
             </div>
             <form onSubmit={handleRegisterUser}>
               <div className="grid-2">
@@ -782,7 +1770,9 @@ export default function SettingsPage() {
                   <input
                     className="form-input"
                     value={inviteForm.name}
-                    onChange={e => setInviteForm(p => ({ ...p, name: e.target.value }))}
+                    onChange={(e) =>
+                      setInviteForm((p) => ({ ...p, name: e.target.value }))
+                    }
                     placeholder="e.g. Jane Wanjiru"
                     required
                   />
@@ -792,7 +1782,9 @@ export default function SettingsPage() {
                   <select
                     className="form-select"
                     value={inviteForm.role}
-                    onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}
+                    onChange={(e) =>
+                      setInviteForm((p) => ({ ...p, role: e.target.value }))
+                    }
                   >
                     <option value="member">Member</option>
                     <option value="admin">Admin</option>
@@ -805,28 +1797,47 @@ export default function SettingsPage() {
                   className="form-input"
                   type="email"
                   value={inviteForm.email}
-                  onChange={e => setInviteForm(p => ({ ...p, email: e.target.value }))}
+                  onChange={(e) =>
+                    setInviteForm((p) => ({ ...p, email: e.target.value }))
+                  }
                   placeholder="jane@fundex.app"
                   required
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Initial Password * (min 8 chars)</label>
+                <label className="form-label">
+                  Initial Password * (min 8 chars)
+                </label>
                 <input
                   className="form-input"
                   type="password"
                   value={inviteForm.password}
-                  onChange={e => setInviteForm(p => ({ ...p, password: e.target.value }))}
+                  onChange={(e) =>
+                    setInviteForm((p) => ({ ...p, password: e.target.value }))
+                  }
                   placeholder="Strong password — share securely with the member"
                   minLength={8}
                   required
                 />
               </div>
-              <button type="submit" className="btn btn-primary" disabled={inviting}>
-                {inviting
-                  ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Registering…</>
-                  : <><UserPlus size={14} /> Register Member</>
-                }
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={inviting}
+              >
+                {inviting ? (
+                  <>
+                    <div
+                      className="spinner"
+                      style={{ width: 14, height: 14 }}
+                    />{" "}
+                    Registering…
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={14} /> Register Member
+                  </>
+                )}
               </button>
             </form>
           </div>
@@ -834,7 +1845,9 @@ export default function SettingsPage() {
           {/* Registration history */}
           {invitations.length > 0 && (
             <div className="card">
-              <h3 style={{ fontWeight: 700, marginBottom: 14, fontSize: 15 }}>Registration History</h3>
+              <h3 style={{ fontWeight: 700, marginBottom: 14, fontSize: 15 }}>
+                Registration History
+              </h3>
               <div className="table-container">
                 <table>
                   <thead>
@@ -847,15 +1860,31 @@ export default function SettingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {invitations.map(inv => (
+                    {invitations.map((inv) => (
                       <tr key={inv.id}>
-                        <td style={{ fontWeight: 600, fontSize: 13 }}>{inv.name}</td>
+                        <td style={{ fontWeight: 600, fontSize: 13 }}>
+                          {inv.name}
+                        </td>
                         <td className="text-sm text-secondary">{inv.email}</td>
-                        <td><span className={`badge badge-${inv.role === 'admin' ? 'amber' : 'blue'}`}>{inv.role}</span></td>
-                        <td className="text-xs text-muted">{new Date(inv.created_at).toLocaleDateString()}</td>
                         <td>
-                          <span className={`badge badge-${inv.accepted_at ? 'green' : inv.expires_at && new Date(inv.expires_at) < new Date() ? 'red' : 'amber'}`}>
-                            {inv.accepted_at ? 'Registered' : new Date(inv.expires_at) < new Date() ? 'Expired' : 'Pending'}
+                          <span
+                            className={`badge badge-${inv.role === "admin" ? "amber" : "blue"}`}
+                          >
+                            {inv.role}
+                          </span>
+                        </td>
+                        <td className="text-xs text-muted">
+                          {new Date(inv.created_at).toLocaleDateString()}
+                        </td>
+                        <td>
+                          <span
+                            className={`badge badge-${inv.accepted_at ? "green" : inv.expires_at && new Date(inv.expires_at) < new Date() ? "red" : "amber"}`}
+                          >
+                            {inv.accepted_at
+                              ? "Registered"
+                              : new Date(inv.expires_at) < new Date()
+                                ? "Expired"
+                                : "Pending"}
                           </span>
                         </td>
                       </tr>
@@ -868,74 +1897,178 @@ export default function SettingsPage() {
 
           {/* Scheduled reminders */}
           <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <Shield size={15} style={{ color: 'var(--olive)' }} />
-              <h3 style={{ fontWeight: 700, fontSize: 15 }}>Scheduled Automations</h3>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 16,
+              }}
+            >
+              <Shield size={15} style={{ color: "var(--olive)" }} />
+              <h3 style={{ fontWeight: 700, fontSize: 15 }}>
+                Scheduled Automations
+              </h3>
             </div>
             {loadingAdmin ? (
-              <div className="flex justify-center" style={{ padding: 24 }}><div className="spinner" style={{ width: 20, height: 20 }} /></div>
+              <div className="flex justify-center" style={{ padding: 24 }}>
+                <div className="spinner" style={{ width: 20, height: 20 }} />
+              </div>
             ) : reminders.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No scheduled reminders configured. Run migration 008 to set them up.</p>
+              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                No scheduled reminders configured. Run migration 008 to set them
+                up.
+              </p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {reminders.map(r => {
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 10 }}
+              >
+                {reminders.map((r) => {
                   const labels = {
-                    monthly_contribution: { title: '📅 Monthly Contribution Reminder', desc: 'Notifies all members to make their monthly contribution' },
-                    snapshot: { title: '📸 Auto Ownership Snapshot', desc: 'Automatically snapshots ownership percentages for record-keeping' },
-                    report: { title: '📊 Monthly Summary Report', desc: 'Generates and stores a monthly financial summary insight' },
-                  }
-                  const cfg = labels[r.reminder_type] || { title: r.reminder_type, desc: '' }
+                    monthly_contribution: {
+                      title: "📅 Monthly Contribution Reminder",
+                      desc: "Notifies all members to make their monthly contribution",
+                    },
+                    snapshot: {
+                      title: "📸 Auto Ownership Snapshot",
+                      desc: "Automatically snapshots ownership percentages for record-keeping",
+                    },
+                    report: {
+                      title: "📊 Monthly Summary Report",
+                      desc: "Generates and stores a monthly financial summary insight",
+                    },
+                  };
+                  const cfg = labels[r.reminder_type] || {
+                    title: r.reminder_type,
+                    desc: "",
+                  };
                   return (
-                    <div key={r.id} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '12px 14px', background: 'var(--bg-elevated)',
-                      borderRadius: 8, border: '1px solid var(--border)', gap: 12, flexWrap: 'wrap'
-                    }}>
+                    <div
+                      key={r.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 14px",
+                        background: "var(--bg-elevated)",
+                        borderRadius: 8,
+                        border: "1px solid var(--border)",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
                       <div style={{ flex: 1, minWidth: 160 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700 }}>{cfg.title}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{cfg.desc}</p>
+                        <p style={{ fontSize: 13, fontWeight: 700 }}>
+                          {cfg.title}
+                        </p>
+                        <p
+                          style={{
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {cfg.desc}
+                        </p>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Day of month:</span>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <span
+                            style={{ fontSize: 11, color: "var(--text-muted)" }}
+                          >
+                            Day of month:
+                          </span>
                           <input
-                            type="number" min="1" max="28"
+                            type="number"
+                            min="1"
+                            max="28"
                             value={r.day_of_month}
-                            onChange={e => updateReminderDay(r.id, e.target.value)}
-                            style={{ width: 48, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', textAlign: 'center' }}
+                            onChange={(e) =>
+                              updateReminderDay(r.id, e.target.value)
+                            }
+                            style={{
+                              width: 48,
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              border: "1px solid var(--border)",
+                              background: "var(--bg-surface)",
+                              color: "var(--text-primary)",
+                              fontSize: 13,
+                              fontFamily: "var(--font-mono)",
+                              textAlign: "center",
+                            }}
                           />
                         </div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            cursor: "pointer",
+                          }}
+                        >
                           <div
                             onClick={() => toggleReminder(r)}
                             style={{
-                              width: 36, height: 20, borderRadius: 99, cursor: 'pointer',
-                              background: r.is_active ? 'var(--olive)' : 'var(--bg-elevated)',
-                              border: `1px solid ${r.is_active ? 'var(--olive)' : 'var(--border)'}`,
-                              position: 'relative', transition: 'background 0.2s',
+                              width: 36,
+                              height: 20,
+                              borderRadius: 99,
+                              cursor: "pointer",
+                              background: r.is_active
+                                ? "var(--olive)"
+                                : "var(--bg-elevated)",
+                              border: `1px solid ${r.is_active ? "var(--olive)" : "var(--border)"}`,
+                              position: "relative",
+                              transition: "background 0.2s",
                             }}
                           >
-                            <div style={{
-                              width: 14, height: 14, borderRadius: '50%', background: '#fff',
-                              position: 'absolute', top: 2,
-                              left: r.is_active ? 18 : 2,
-                              transition: 'left 0.2s',
-                            }} />
+                            <div
+                              style={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: "50%",
+                                background: "#fff",
+                                position: "absolute",
+                                top: 2,
+                                left: r.is_active ? 18 : 2,
+                                transition: "left 0.2s",
+                              }}
+                            />
                           </div>
-                          <span style={{ fontSize: 12, color: r.is_active ? 'var(--olive)' : 'var(--text-muted)', fontWeight: 600 }}>
-                            {r.is_active ? 'On' : 'Off'}
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: r.is_active
+                                ? "var(--olive)"
+                                : "var(--text-muted)",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {r.is_active ? "On" : "Off"}
                           </span>
                         </label>
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
             )}
           </div>
-
         </div>
       )}
     </div>
-  )
+  );
 }
