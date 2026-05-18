@@ -29,9 +29,6 @@ export default function TransactionsPage() {
   const [voting, setVoting] = useState({})
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  // Total number of completed deposits that still need a bank
-  // verification code (across ALL pages, ignoring current filter).
-  const [backfillCount, setBackfillCount] = useState(0)
 
   // Admin edit/delete state
   const [editingTx, setEditingTx] = useState(null)
@@ -47,19 +44,9 @@ export default function TransactionsPage() {
   const [verifyCode, setVerifyCode] = useState({})
   const [verifyBusy, setVerifyBusy] = useState({})
 
-  // Rejection state — separate from verify so opening the reject
-  // panel doesn't clobber a typed-in bank code.
-  const [rejectingTx, setRejectingTx] = useState(null)
-  const [rejectReason, setRejectReason] = useState({})
-  const [rejectBusy, setRejectBusy] = useState({})
-
-  // When TRUE, only show completed deposits without a bank_verification_code
-  // (i.e. legacy rows the admin still needs to back-fill).
-  const [needsBackfillOnly, setNeedsBackfillOnly] = useState(false)
-
   useEffect(() => { fetchMembers() }, [])
-  useEffect(() => { setPage(1) }, [filter, needsBackfillOnly])
-  useEffect(() => { fetchData() }, [filter, page, needsBackfillOnly])
+  useEffect(() => { setPage(1) }, [filter])
+  useEffect(() => { fetchData() }, [filter, page])
 
   useEffect(() => {
     if (highlightId) {
@@ -85,39 +72,6 @@ export default function TransactionsPage() {
     if (data) setMembers(data)
   }
 
-  // How many completed deposits is the current user eligible
-  // to back-fill? Drives the back-fill banner. Independent of
-  // pagination and current filter.
-  //   * Admins → count every un-back-filled completed deposit
-  //              (except their own).
-  //   * Members → count un-back-filled completed deposits whose
-  //              depositor is an admin (mirrors canBackfillDeposit).
-  const fetchBackfillCount = useCallback(async () => {
-    if (!profile?.id) { setBackfillCount(0); return }
-
-    let query = supabase
-      .from('transactions')
-      .select(
-        // !inner forces the join filter to apply server-side
-        'id, profiles!transactions_user_id_fkey!inner(role)',
-        { count: 'exact', head: true }
-      )
-      .eq('type', 'deposit')
-      .eq('status', 'completed')
-      .is('bank_verification_code', null)
-      .neq('user_id', profile.id)            // never self
-
-    // Non-admins can only act on admin deposits.
-    if (!isAdmin) {
-      query = query.eq('profiles.role', 'admin')
-    }
-
-    const { count, error } = await query
-    if (!error) setBackfillCount(count || 0)
-  }, [isAdmin, profile?.id])
-
-  useEffect(() => { fetchBackfillCount() }, [fetchBackfillCount])
-
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -129,31 +83,6 @@ export default function TransactionsPage() {
       if (filter.type) query = query.eq('type', filter.type)
       if (filter.status) query = query.eq('status', filter.status)
       if (filter.member) query = query.eq('user_id', filter.member)
-
-      // Back-fill filter: completed deposits with no
-      // bank_verification_code. Mirrors canBackfillDeposit:
-      //  - Admin caller → all such deposits (except own)
-      //  - Member caller → only those where the depositor is admin
-      // Overrides any conflicting filters set above.
-      if (needsBackfillOnly) {
-        query = supabase
-          .from('transactions')
-          .select(
-            // !inner so we can filter on profiles.role server-side
-            '*, profiles!transactions_user_id_fkey!inner(name, id, avatar_url, role)',
-            { count: 'exact' }
-          )
-          .order('transaction_date', { ascending: false })
-          .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
-          .eq('type', 'deposit')
-          .eq('status', 'completed')
-          .is('bank_verification_code', null)
-          .neq('user_id', profile?.id || '00000000-0000-0000-0000-000000000000')
-
-        if (!isAdmin) {
-          query = query.eq('profiles.role', 'admin')
-        }
-      }
 
       const { data, error, count } = await query
       if (!error && data) {
@@ -181,7 +110,7 @@ export default function TransactionsPage() {
       toast.error('Network error loading transactions')
     }
     setLoading(false)
-  }, [filter, page, needsBackfillOnly, isAdmin, profile?.id])
+  }, [filter, page])
 
   const handleVote = async (transactionId, approve, reason = '') => {
     setVoting(v => ({ ...v, [transactionId]: true }))
@@ -318,72 +247,6 @@ export default function TransactionsPage() {
     rejected:  'rejected',
   }[s] || s)
 
-  // ── Approvals/Verification cell helper ─────────────────────
-  // Returns an array of badge descriptors { label, kind } where
-  // kind ∈ {green, blue, amber, red, gray}. Used by the Approvals
-  // column on both desktop and mobile. Handles all type/status
-  // combinations:
-  //
-  //   Deposit  pending_verification        → [Awaiting Verification]
-  //   Deposit  completed + bank code       → [Approved & Verified]
-  //   Deposit  completed, no bank code     → [Counted, Unverified]
-  //   Deposit  rejected                    → [Rejected]
-  //
-  //   Withdrawal pending (some votes left) → [Pending Votes]
-  //   Withdrawal pending (all voted)       → [Pending Votes]  (status hasn't flipped yet)
-  //   Withdrawal completed                 → [Approved]
-  //   Withdrawal rejected                  → [Rejected]
-  //
-  //   Adjustment completed                 → [Approved]
-  //   anything else                        → [—]
-  const getApprovalBadges = (tx) => {
-    if (!tx) return [{ label: '—', kind: 'gray' }]
-
-    if (tx.type === 'deposit') {
-      if (tx.status === 'pending_verification') {
-        return [{ label: 'Awaiting Verification', kind: 'amber' }]
-      }
-      if (tx.status === 'rejected') {
-        return [{ label: 'Rejected', kind: 'red' }]
-      }
-      if (tx.status === 'completed') {
-        if (tx.bank_verification_code) {
-          return [{ label: 'Approved & Verified', kind: 'green' }]
-        }
-        return [{ label: 'Counted, Unverified', kind: 'amber' }]
-      }
-    }
-
-    if (tx.type === 'withdrawal') {
-      if (tx.status === 'pending') {
-        return [{ label: 'Pending Votes', kind: 'amber' }]
-      }
-      if (tx.status === 'rejected') {
-        return [{ label: 'Rejected', kind: 'red' }]
-      }
-      if (tx.status === 'completed') {
-        return [{ label: 'Approved', kind: 'green' }]
-      }
-    }
-
-    if (tx.type === 'adjustment') {
-      if (tx.status === 'completed') {
-        return [{ label: 'Approved', kind: 'green' }]
-      }
-    }
-
-    return [{ label: '—', kind: 'gray' }]
-  }
-
-  // CSS class for each badge kind
-  const badgeClass = (kind) => ({
-    green: 'badge-green',
-    blue:  'badge-blue',
-    amber: 'badge-amber',
-    red:   'badge-red',
-    gray:  'badge-gray',
-  }[kind] || 'badge-gray')
-
   // Can the current user verify this deposit?
   //  - Must be a deposit awaiting verification
   //  - The current user must NOT be the depositor
@@ -428,128 +291,22 @@ export default function TransactionsPage() {
       return
     }
     toast.success(`Deposit verified ✓ — added to reconciliation`)
-    // Note: depositor + group notifications (and emails) are sent by
-    // the notify_members_on_deposit DB trigger (migration 025), which
-    // fires when the status flips to 'completed' and now includes
-    // verifier name + bank reference.
+    // Notify the depositor that their deposit is now verified.
+    // (The deposit-completed trigger also fires its own confirmation,
+    //  but this one is more specific to verification.)
+    await supabase.from('notifications').insert({
+      user_id: tx.user_id,
+      title: '✅ Your deposit was verified',
+      message:
+        `${profile.name?.split(' ')[0]} verified your KES ${Number(tx.amount).toLocaleString()} deposit ` +
+        `with bank reference ${code}. It is now counted in the group pool.`,
+      type: 'success',
+      action_url: `/transactions?pending=${tx.id}`,
+    })
     setVerifyingTx(null)
     setVerifyCode(c => ({ ...c, [tx.id]: '' }))
     setVerifyBusy(b => ({ ...b, [tx.id]: false }))
     await fetchData()
-  }
-
-  // Reject a pending_verification deposit. Calls the
-  // reject_deposit_verification RPC (migration 029). Same
-  // role rules as verify_deposit — only enforced server-side.
-  const handleRejectDeposit = async (tx) => {
-    const reason = (rejectReason[tx.id] || '').trim()
-    if (reason.length < 5) {
-      toast.error('Please give a reason (at least 5 characters)')
-      return
-    }
-    setRejectBusy(b => ({ ...b, [tx.id]: true }))
-    const { data, error } = await supabase.rpc('reject_deposit_verification', {
-      p_transaction_id: tx.id,
-      p_reason:         reason,
-    })
-    if (error) {
-      toast.error('Reject failed: ' + error.message)
-      setRejectBusy(b => ({ ...b, [tx.id]: false }))
-      return
-    }
-    if (data && data.success === false) {
-      toast.error(data.error || 'Rejection refused')
-      setRejectBusy(b => ({ ...b, [tx.id]: false }))
-      return
-    }
-    toast.success('Deposit marked as rejected — depositor has been notified')
-    setRejectingTx(null)
-    setRejectReason(r => ({ ...r, [tx.id]: '' }))
-    setRejectBusy(b => ({ ...b, [tx.id]: false }))
-    await fetchData()
-  }
-
-  // ── BACK-FILL: stamping a bank code onto an OLD completed deposit ──
-  // Mirrors verify_deposit / backfill_deposit_verification dual-control:
-  //  - tx is already 'completed' (legacy data)
-  //  - bank_verification_code is still NULL
-  //  - caller is NOT the depositor
-  //  - If depositor is admin → ANY other member can back-fill
-  //  - If depositor is non-admin → only an admin can back-fill
-  const canBackfillDeposit = (tx) => {
-    if (!tx || !profile) return false
-    if (tx.type !== 'deposit') return false
-    if (tx.status !== 'completed') return false
-    if (tx.bank_verification_code) return false
-    if (tx.user_id === profile.id) return false
-    const depositor = members.find(m => m.id === tx.user_id)
-    if (!depositor) return false
-    if (depositor.role === 'admin') return true      // any other member
-    return isAdmin                                   // member deposit → admin-only
-  }
-
-  // Submit the bank code for an old completed deposit (back-fill).
-  const handleBackfillDeposit = async (tx) => {
-    const code = (verifyCode[tx.id] || '').trim()
-    if (!code) {
-      toast.error('Enter the bank verification code first')
-      return
-    }
-    setVerifyBusy(b => ({ ...b, [tx.id]: true }))
-    const { data, error } = await supabase.rpc('backfill_deposit_verification', {
-      p_transaction_id: tx.id,
-      p_bank_code:      code,
-    })
-    if (error) {
-      toast.error('Back-fill failed: ' + error.message)
-      setVerifyBusy(b => ({ ...b, [tx.id]: false }))
-      return
-    }
-    if (data && data.success === false) {
-      toast.error(data.error || 'Back-fill rejected')
-      setVerifyBusy(b => ({ ...b, [tx.id]: false }))
-      return
-    }
-    toast.success(
-      data?.recon_created
-        ? 'Bank code added ✓ — also linked on reconciliation page'
-        : 'Bank code added ✓'
-    )
-    setVerifyingTx(null)
-    setVerifyCode(c => ({ ...c, [tx.id]: '' }))
-    setVerifyBusy(b => ({ ...b, [tx.id]: false }))
-
-    // Compute the new back-fill count BEFORE refetching the grid.
-    // If it has dropped to zero AND the "Show only these" filter
-    // is on, we drop the filter so the user lands back on the
-    // general transactions list automatically (otherwise they'd
-    // be stuck on an empty list until navigating away and back).
-    let remainingCount = 0
-    {
-      let q = supabase
-        .from('transactions')
-        .select('id, profiles!transactions_user_id_fkey!inner(role)', {
-          count: 'exact',
-          head: true,
-        })
-        .eq('type', 'deposit')
-        .eq('status', 'completed')
-        .is('bank_verification_code', null)
-        .neq('user_id', profile?.id || '00000000-0000-0000-0000-000000000000')
-      if (!isAdmin) q = q.eq('profiles.role', 'admin')
-      const { count } = await q
-      remainingCount = count || 0
-    }
-    setBackfillCount(remainingCount)
-
-    if (needsBackfillOnly && remainingCount === 0) {
-      setNeedsBackfillOnly(false)
-      toast.success('All caught up — showing the full list')
-      // fetchData will fire automatically because needsBackfillOnly
-      // is in its useEffect deps.
-    } else {
-      await fetchData()
-    }
   }
 
   const ApproverChip = ({ approval }) => {
@@ -737,68 +494,6 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {/* Back-fill banner — shown to anyone eligible to back-fill at
-          least one historical deposit (admin OR member-with-admin-deposits
-          to verify) */}
-      {backfillCount > 0 && (
-        <div
-          style={{
-            background: "rgba(58,77,181,0.06)",
-            border: "1px solid rgba(58,77,181,0.22)",
-            borderRadius: 10,
-            padding: "12px 16px",
-            marginBottom: 16,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <ShieldCheck
-            size={16}
-            style={{
-              color: "var(--accent-blue, #3a4db5)",
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: "var(--accent-blue, #3a4db5)",
-              flex: 1,
-              minWidth: 200,
-            }}
-          >
-            {backfillCount} earlier deposit
-            {backfillCount === 1 ? "" : "s"} need
-            {backfillCount === 1 ? "s" : ""} a bank verification code
-            {!isAdmin ? " — admin deposits are awaiting your verification" : ""}
-            {needsBackfillOnly ? " (showing below)" : ""}
-          </span>
-          <button
-            className="btn btn-sm"
-            style={{
-              fontSize: 12,
-              padding: "4px 10px",
-              background: needsBackfillOnly
-                ? "var(--accent-blue, #3a4db5)"
-                : "transparent",
-              color: needsBackfillOnly
-                ? "#fff"
-                : "var(--accent-blue, #3a4db5)",
-              border: "1px solid var(--accent-blue, #3a4db5)",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
-            onClick={() => setNeedsBackfillOnly((v) => !v)}
-          >
-            {needsBackfillOnly ? "✓ Showing only these" : "Show only these"}
-          </button>
-        </div>
-      )}
-
       {/* Pending approvals banner */}
       {transactions.some(
         (t) =>
@@ -861,10 +556,10 @@ export default function TransactionsPage() {
                     <th>Member</th>
                     <th>Type</th>
                     <th>Amount</th>
-                    <th>Refs</th>
+                    <th>Reference</th>
                     <th>Date</th>
                     <th>Status</th>
-                    <th style={{ width: 130 }}>Approvals</th>
+                    <th style={{ width: 100 }}>Approvals</th>
                     <th style={{ width: isAdmin ? 110 : 40 }}></th>
                   </tr>
                 </thead>
@@ -881,7 +576,6 @@ export default function TransactionsPage() {
                       tx.type === "deposit" && tx.status === "pending_verification";
                     const showVerifyRow = verifyingTx === tx.id;
                     const iCanVerify = canVerifyDeposit(tx);
-                    const iCanBackfill = canBackfillDeposit(tx);
 
                     return (
                       <React.Fragment key={tx.id}>
@@ -964,88 +658,99 @@ export default function TransactionsPage() {
                             {tx.type === "deposit" ? "+" : "-"}
                             {formatCurrency(tx.amount)}
                           </td>
-                          <td className="text-sm" style={{ minWidth: 130 }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                              <span style={{ color: 'var(--text-secondary)' }} title="Member's M-Pesa / bank reference">
-                                <span style={{ color: 'var(--text-muted)', fontSize: 10, fontFamily: 'inherit', fontWeight: 400 }}>Deposit: </span>
-                                {tx.reference || <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                              </span>
-                              {tx.type === 'deposit' && (
-                                <span title="Bank-side verification code added by admin">
-                                  <span style={{ color: 'var(--text-muted)', fontSize: 10, fontFamily: 'inherit', fontWeight: 400 }}>Bank: </span>
-                                  {tx.bank_verification_code ? (
-                                    <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>
-                                      ✓ {tx.bank_verification_code}
-                                    </span>
-                                  ) : (
-                                    <span style={{ color: 'var(--text-muted)' }}>—</span>
-                                  )}
-                                </span>
-                              )}
-                            </div>
+                          <td className="text-sm text-secondary">
+                            {tx.reference || "—"}
                           </td>
                           <td className="text-sm text-muted">
                             {formatDateTime(tx.transaction_date)}
                           </td>
                           <td>
-                            <span
-                              className={`badge ${getStatusBadge(tx.status)}`}
-                              title={tx.status}
-                            >
-                              {getStatusLabel(tx.status)}
-                            </span>
-                          </td>
-                          <td>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
-                              {getApprovalBadges(tx).map((b, i) => (
+                              <span
+                                className={`badge ${getStatusBadge(tx.status)}`}
+                                title={tx.status}
+                              >
+                                {getStatusLabel(tx.status)}
+                              </span>
+                              {isVerified(tx) && (
                                 <span
-                                  key={i}
-                                  className={`badge ${badgeClass(b.kind)}`}
-                                  style={{ fontSize: 10, whiteSpace: 'nowrap' }}
-                                  title={
-                                    tx.bank_verification_code
-                                      ? `Bank ref: ${tx.bank_verification_code}` +
-                                        (tx.verified_at ? ` (verified ${formatDateTime(tx.verified_at)})` : '')
-                                      : undefined
-                                  }
+                                  className="badge badge-green"
+                                  title={`Verified by bank reference ${tx.bank_verification_code}${tx.verified_at ? ' on ' + formatDateTime(tx.verified_at) : ''}`}
+                                  style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 3 }}
                                 >
-                                  {b.label}
+                                  <ShieldCheck size={10} /> Verified
                                 </span>
-                              ))}
-                              {isWithdrawalPending && summary.total > 0 && (
-                                <div style={{ display: 'flex', gap: 3, alignItems: 'center', marginTop: 2 }}>
-                                  <div style={{ display: 'flex', gap: 3 }}>
-                                    {(approvals[tx.id] || []).map((a) => (
-                                      <div
-                                        key={a.id}
-                                        title={`${a.profiles?.name?.split(' ')[0]}: ${a.status}`}
-                                        style={{
-                                          borderRadius: '50%',
-                                          overflow: 'hidden',
-                                          border:
-                                            a.status === 'approved'
-                                              ? '2px solid rgba(13,156,94,0.6)'
-                                              : a.status === 'rejected'
-                                                ? '2px solid rgba(220,53,69,0.6)'
-                                                : '2px solid var(--border)',
-                                          opacity: a.status === 'pending' ? 0.45 : 1,
-                                        }}
-                                      >
-                                        <MemberAvatar
-                                          name={a.profiles?.name}
-                                          avatarUrl={a.profiles?.avatar_url}
-                                          size={18}
-                                          fontSize={7}
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                    {summary.approved.length}/{summary.total}
-                                  </span>
-                                </div>
                               )}
                             </div>
+                          </td>
+                          <td>
+                            {isWithdrawalPending && summary.total > 0 ? (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                }}
+                              >
+                                <div style={{ display: "flex", gap: 3 }}>
+                                  {(approvals[tx.id] || []).map((a) => (
+                                    <div
+                                      key={a.id}
+                                      title={`${a.profiles?.name?.split(" ")[0]}: ${a.status}`}
+                                      style={{
+                                        borderRadius: "50%",
+                                        overflow: "hidden",
+                                        border:
+                                          a.status === "approved"
+                                            ? "2px solid rgba(13,156,94,0.6)"
+                                            : a.status === "rejected"
+                                              ? "2px solid rgba(220,53,69,0.6)"
+                                              : "2px solid var(--border)",
+                                        opacity:
+                                          a.status === "pending" ? 0.45 : 1,
+                                      }}
+                                    >
+                                      <MemberAvatar
+                                        name={a.profiles?.name}
+                                        avatarUrl={a.profiles?.avatar_url}
+                                        size={22}
+                                        fontSize={8}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    color: "var(--text-muted)",
+                                  }}
+                                >
+                                  {summary.approved.length}/{summary.total}
+                                </span>
+                              </div>
+                            ) : tx.type === "withdrawal" &&
+                              tx.status === "completed" ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--accent-emerald)",
+                                }}
+                              >
+                                ✓ All approved
+                              </span>
+                            ) : tx.type === "withdrawal" &&
+                              tx.status === "rejected" ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  color: "var(--accent-red)",
+                                }}
+                              >
+                                ✕ Rejected
+                              </span>
+                            ) : (
+                              <span className="text-muted text-xs">—</span>
+                            )}
                           </td>
                           <td onClick={(e) => e.stopPropagation()}>
                             <div className="row-actions">
@@ -1111,33 +816,6 @@ export default function TransactionsPage() {
                                 >
                                   <Clock size={11} />
                                 </span>
-                              )}
-                              {iCanBackfill && (
-                                <button
-                                  className="btn btn-sm"
-                                  onClick={() =>
-                                    setVerifyingTx(
-                                      showVerifyRow ? null : tx.id,
-                                    )
-                                  }
-                                  title="Add bank verification code to this historical deposit"
-                                  style={{
-                                    fontSize: 11,
-                                    padding: "3px 8px",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    background: "transparent",
-                                    color: "var(--accent-blue, #3a4db5)",
-                                    border:
-                                      "1px solid var(--accent-blue, #3a4db5)",
-                                    borderRadius: 6,
-                                    cursor: "pointer",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  <ShieldCheck size={11} /> Add Code
-                                </button>
                               )}
                               {isAdmin && (
                                 <>
@@ -1355,19 +1033,15 @@ export default function TransactionsPage() {
                           </tr>
                         )}
 
-                        {/* Deposit verification / back-fill row */}
-                        {(iCanVerify || iCanBackfill) && showVerifyRow && (
+                        {/* Deposit verification row (admin or other-member) */}
+                        {iCanVerify && showVerifyRow && (
                           <tr key={`${tx.id}-verify`}>
                             <td
                               colSpan={8}
                               style={{
                                 padding: "10px 16px 14px",
-                                background: iCanBackfill
-                                  ? "rgba(58,77,181,0.04)"
-                                  : "rgba(230,144,10,0.05)",
-                                borderLeft: iCanBackfill
-                                  ? "3px solid var(--accent-blue, #3a4db5)"
-                                  : "3px solid var(--accent-amber)",
+                                background: "rgba(230,144,10,0.05)",
+                                borderLeft: "3px solid var(--accent-amber)",
                               }}
                             >
                               <div
@@ -1398,9 +1072,8 @@ export default function TransactionsPage() {
                                       marginTop: 2,
                                     }}
                                   >
-                                    {iCanBackfill
-                                      ? "Back-fill: this deposit is already counted in the pool. Adding the bank code does not change equity or balances — it only records the bank-side reference for audit and reconciliation."
-                                      : "Confirm the funds in the bank account, then enter the bank-side verification code below."}
+                                    Confirm the funds in the bank account, then
+                                    enter the bank-side verification code below.
                                   </p>
                                 </div>
                                 <div style={{ flex: "1 1 220px", minWidth: 180 }}>
@@ -1427,15 +1100,11 @@ export default function TransactionsPage() {
                                     autoFocus
                                   />
                                 </div>
-                                <div style={{ display: "flex", gap: 8, flexWrap: 'wrap' }}>
+                                <div style={{ display: "flex", gap: 8 }}>
                                   <button
                                     className="btn btn-primary btn-sm"
                                     disabled={verifyBusy[tx.id]}
-                                    onClick={() =>
-                                      iCanBackfill
-                                        ? handleBackfillDeposit(tx)
-                                        : handleVerifyDeposit(tx)
-                                    }
+                                    onClick={() => handleVerifyDeposit(tx)}
                                     style={{
                                       display: "inline-flex",
                                       alignItems: "center",
@@ -1449,32 +1118,10 @@ export default function TransactionsPage() {
                                       />
                                     ) : (
                                       <>
-                                        <ShieldCheck size={12} />{" "}
-                                        {iCanBackfill
-                                          ? "Save Bank Code"
-                                          : "Confirm Verify"}
+                                        <ShieldCheck size={12} /> Confirm Verify
                                       </>
                                     )}
                                   </button>
-                                  {!iCanBackfill && (
-                                    <button
-                                      className="btn btn-sm"
-                                      onClick={() => {
-                                        setVerifyingTx(null);
-                                        setRejectingTx(tx.id);
-                                      }}
-                                      style={{
-                                        background: 'transparent',
-                                        color: 'var(--accent-red)',
-                                        border: '1px solid var(--accent-red)',
-                                        borderRadius: 6,
-                                        fontWeight: 600,
-                                      }}
-                                      title="Funds didn't arrive — reject this deposit"
-                                    >
-                                      Reject…
-                                    </button>
-                                  )}
                                   <button
                                     className="btn btn-secondary btn-sm"
                                     onClick={() => {
@@ -1483,70 +1130,6 @@ export default function TransactionsPage() {
                                         ...c,
                                         [tx.id]: "",
                                       }));
-                                    }}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-
-                        {/* Reject-reason row */}
-                        {rejectingTx === tx.id && (
-                          <tr key={`${tx.id}-reject`}>
-                            <td
-                              colSpan={8}
-                              style={{
-                                padding: '10px 16px 14px',
-                                background: 'rgba(220,53,69,0.05)',
-                                borderLeft: '3px solid var(--accent-red)',
-                              }}
-                            >
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
-                                <div style={{ flex: '1 1 100%', marginBottom: 4 }}>
-                                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
-                                    Rejecting <strong>{tx.profiles?.name}</strong>'s deposit of{' '}
-                                    <strong style={{ fontFamily: 'var(--font-mono)' }}>{formatCurrency(tx.amount)}</strong>.
-                                  </p>
-                                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                                    Give a clear reason — the depositor will see it. Minimum 5 characters.
-                                  </p>
-                                </div>
-                                <div style={{ flex: '1 1 280px', minWidth: 200 }}>
-                                  <input
-                                    className="form-input"
-                                    placeholder="e.g. Funds did not arrive in the account / Duplicate of TX-1234"
-                                    value={rejectReason[tx.id] || ''}
-                                    onChange={e => setRejectReason(r => ({ ...r, [tx.id]: e.target.value }))}
-                                    style={{ fontSize: 13 }}
-                                    autoFocus
-                                  />
-                                </div>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                  <button
-                                    className="btn btn-sm"
-                                    disabled={rejectBusy[tx.id]}
-                                    onClick={() => handleRejectDeposit(tx)}
-                                    style={{
-                                      background: 'var(--accent-red)',
-                                      color: '#fff',
-                                      border: 'none',
-                                      borderRadius: 6,
-                                      fontWeight: 600,
-                                      padding: '6px 12px',
-                                    }}
-                                  >
-                                    {rejectBusy[tx.id] ? (
-                                      <div className="spinner" style={{ width: 12, height: 12 }} />
-                                    ) : 'Confirm Reject'}
-                                  </button>
-                                  <button
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => {
-                                      setRejectingTx(null)
-                                      setRejectReason(r => ({ ...r, [tx.id]: '' }))
                                     }}
                                   >
                                     Cancel
@@ -1584,7 +1167,6 @@ export default function TransactionsPage() {
                   tx.type === "deposit" && tx.status === "pending_verification";
                 const showVerifyRow = verifyingTx === tx.id;
                 const iCanVerify = canVerifyDeposit(tx);
-                const iCanBackfill = canBackfillDeposit(tx);
                 return (
                   <div
                     key={`mob-${tx.id}`}
@@ -1621,19 +1203,8 @@ export default function TransactionsPage() {
                               .slice(0, 2)
                               .join(" ")}
                           </div>
-                          <div className="mobile-tx-card-sub" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                            {tx.reference ? (
-                              <span>
-                                <span style={{ color: 'var(--text-muted)', fontFamily: 'inherit', fontSize: 10 }}>Dep: </span>
-                                {tx.reference}
-                              </span>
-                            ) : (tx.description || "—")}
-                            {tx.type === 'deposit' && tx.bank_verification_code && (
-                              <span style={{ marginLeft: 8, color: 'var(--accent-emerald)', fontWeight: 600 }}>
-                                <span style={{ color: 'var(--text-muted)', fontFamily: 'inherit', fontSize: 10, fontWeight: 400 }}>Bank: </span>
-                                ✓ {tx.bank_verification_code}
-                              </span>
-                            )}
+                          <div className="mobile-tx-card-sub">
+                            {tx.reference || tx.description || "—"}
                           </div>
                         </div>
                       </div>
@@ -1664,20 +1235,20 @@ export default function TransactionsPage() {
                       >
                         {getStatusLabel(tx.status)}
                       </span>
-                      {getApprovalBadges(tx).map((b, i) => (
+                      {isVerified(tx) && (
                         <span
-                          key={`appr-${i}`}
-                          className={`badge ${badgeClass(b.kind)}`}
-                          style={{ fontSize: 10, whiteSpace: 'nowrap' }}
-                          title={
-                            tx.bank_verification_code
-                              ? `Bank ref: ${tx.bank_verification_code}`
-                              : undefined
-                          }
+                          className="badge badge-green"
+                          style={{
+                            fontSize: 10,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                          }}
+                          title={`Verified by bank ref ${tx.bank_verification_code}`}
                         >
-                          {b.label}
+                          <ShieldCheck size={10} /> Verified
                         </span>
-                      ))}
+                      )}
                       <span
                         style={{
                           fontSize: 11,
@@ -1733,48 +1304,31 @@ export default function TransactionsPage() {
                       </div>
                     )}
 
-                    {/* Mobile verify / back-fill button + inline panel */}
-                    {(iCanVerify || iCanBackfill) && (
+                    {/* Mobile verify button + inline panel */}
+                    {iCanVerify && (
                       <div
                         style={{ marginTop: 8 }}
                         onClick={(e) => e.stopPropagation()}
                       >
                         {!showVerifyRow ? (
                           <button
-                            className="btn btn-sm"
+                            className="btn btn-primary btn-sm"
                             style={{
                               width: "100%",
                               display: "inline-flex",
                               alignItems: "center",
                               justifyContent: "center",
                               gap: 6,
-                              background: iCanBackfill
-                                ? "transparent"
-                                : "var(--olive)",
-                              color: iCanBackfill
-                                ? "var(--accent-blue, #3a4db5)"
-                                : "#fff",
-                              border: iCanBackfill
-                                ? "1px solid var(--accent-blue, #3a4db5)"
-                                : "none",
-                              borderRadius: 6,
-                              fontWeight: 600,
-                              padding: "6px 10px",
                             }}
                             onClick={() => setVerifyingTx(tx.id)}
                           >
-                            <ShieldCheck size={13} />{" "}
-                            {iCanBackfill ? "Add Bank Code" : "Verify Deposit"}
+                            <ShieldCheck size={13} /> Verify Deposit
                           </button>
                         ) : (
                           <div
                             style={{
-                              background: iCanBackfill
-                                ? "rgba(58,77,181,0.05)"
-                                : "rgba(230,144,10,0.06)",
-                              border: iCanBackfill
-                                ? "1px solid rgba(58,77,181,0.22)"
-                                : "1px solid rgba(230,144,10,0.22)",
+                              background: "rgba(230,144,10,0.06)",
+                              border: "1px solid rgba(230,144,10,0.22)",
                               borderRadius: 8,
                               padding: 10,
                             }}
@@ -1791,18 +1345,6 @@ export default function TransactionsPage() {
                                 {tx.reference || "—"}
                               </strong>
                             </p>
-                            {iCanBackfill && (
-                              <p
-                                style={{
-                                  fontSize: 11,
-                                  color: "var(--text-muted)",
-                                  marginBottom: 8,
-                                }}
-                              >
-                                Back-fill: this deposit is already counted.
-                                Adding the code is record-keeping only.
-                              </p>
-                            )}
                             <input
                               className="form-input"
                               placeholder="Bank verification code"
@@ -1821,11 +1363,7 @@ export default function TransactionsPage() {
                                 className="btn btn-primary btn-sm"
                                 disabled={verifyBusy[tx.id]}
                                 style={{ flex: 1 }}
-                                onClick={() =>
-                                  iCanBackfill
-                                    ? handleBackfillDeposit(tx)
-                                    : handleVerifyDeposit(tx)
-                                }
+                                onClick={() => handleVerifyDeposit(tx)}
                               >
                                 {verifyBusy[tx.id] ? (
                                   <div
@@ -1834,8 +1372,7 @@ export default function TransactionsPage() {
                                   />
                                 ) : (
                                   <>
-                                    <ShieldCheck size={12} />{" "}
-                                    {iCanBackfill ? "Save" : "Confirm"}
+                                    <ShieldCheck size={12} /> Confirm
                                   </>
                                 )}
                               </button>
@@ -1853,88 +1390,8 @@ export default function TransactionsPage() {
                                 Cancel
                               </button>
                             </div>
-                            {!iCanBackfill && (
-                              <button
-                                className="btn btn-sm"
-                                style={{
-                                  marginTop: 8,
-                                  width: '100%',
-                                  background: 'transparent',
-                                  color: 'var(--accent-red)',
-                                  border: '1px solid var(--accent-red)',
-                                  borderRadius: 6,
-                                  fontWeight: 600,
-                                  padding: '6px',
-                                }}
-                                onClick={() => {
-                                  setVerifyingTx(null);
-                                  setRejectingTx(tx.id);
-                                }}
-                              >
-                                Reject this deposit…
-                              </button>
-                            )}
                           </div>
                         )}
-                      </div>
-                    )}
-
-                    {/* Mobile reject panel */}
-                    {rejectingTx === tx.id && (
-                      <div
-                        style={{ marginTop: 8 }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div
-                          style={{
-                            background: 'rgba(220,53,69,0.06)',
-                            border: '1px solid rgba(220,53,69,0.22)',
-                            borderRadius: 8,
-                            padding: 10,
-                          }}
-                        >
-                          <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                            Reject <strong>{tx.profiles?.name?.split(' ')[0]}</strong>'s deposit of{' '}
-                            <strong style={{ fontFamily: 'var(--font-mono)' }}>{formatCurrency(tx.amount)}</strong>?
-                          </p>
-                          <input
-                            className="form-input"
-                            placeholder="Reason (min 5 chars)"
-                            value={rejectReason[tx.id] || ''}
-                            onChange={e => setRejectReason(r => ({ ...r, [tx.id]: e.target.value }))}
-                            style={{ fontSize: 13, marginBottom: 8 }}
-                            autoFocus
-                          />
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button
-                              className="btn btn-sm"
-                              disabled={rejectBusy[tx.id]}
-                              style={{
-                                flex: 1,
-                                background: 'var(--accent-red)',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: 6,
-                                fontWeight: 600,
-                              }}
-                              onClick={() => handleRejectDeposit(tx)}
-                            >
-                              {rejectBusy[tx.id] ? (
-                                <div className="spinner" style={{ width: 12, height: 12 }} />
-                              ) : 'Reject'}
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              style={{ flex: 1 }}
-                              onClick={() => {
-                                setRejectingTx(null)
-                                setRejectReason(r => ({ ...r, [tx.id]: '' }))
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
                       </div>
                     )}
 

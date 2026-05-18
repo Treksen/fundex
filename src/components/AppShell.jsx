@@ -22,11 +22,15 @@ const NAV_ITEMS = [
   { path: '/reports', icon: FileBarChart, label: 'Reports' },
   { path: '/governance', icon: Vote, label: 'Governance' },
   { path: '/cashflow', icon: BarChart2, label: 'Cash Flow' },
+  // Members get read-only access to Ledger + Reconciliation; the
+  // pages themselves gate edit/delete actions behind isAdmin, and
+  // the corresponding RLS policies (migrations 008, 009) allow
+  // SELECT for any authenticated user.
+  { path: '/ledger', icon: BookOpen, label: 'Ledger' },
+  { path: '/reconciliation', icon: GitMerge, label: 'Reconciliation' },
 ]
 
 const ADMIN_ITEMS = [
-  { path: '/ledger', icon: BookOpen, label: 'Ledger' },
-  { path: '/reconciliation', icon: GitMerge, label: 'Reconciliation' },
   { path: '/audit', icon: Shield, label: 'Audit Log' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ]

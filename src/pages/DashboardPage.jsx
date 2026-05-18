@@ -1,7 +1,7 @@
 import MemberAvatar from '../components/MemberAvatar'
 import PageHeader from '../components/PageHeader'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { TrendingUp, Wallet, Users, ArrowDownRight, Plus, AlertCircle } from 'lucide-react'
+import { TrendingUp, Wallet, Users, ArrowDownRight, Plus, AlertCircle, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrency, formatDate, formatPercentage, getMemberColor } from '../lib/utils'
@@ -18,7 +18,7 @@ import { useNavigate } from 'react-router-dom'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, Filler)
 
 export default function DashboardPage() {
-  const { profile } = useAuth();
+  const { profile, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalPool: 0,
@@ -33,6 +33,15 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddTx, setShowAddTx] = useState(false);
+
+  // Verification queue stats — populated on mount + on every
+  // realtime change. Visible to everyone (members are eligible
+  // to verify/back-fill admin deposits per dual-control rules).
+  const [verifQueue, setVerifQueue] = useState({
+    pending: 0,        // count of deposits awaiting verification (eligible for me)
+    oldestDays: 0,     // age in days of the oldest one
+    backfill: 0,       // legacy completed deposits with no bank code (eligible for me)
+  });
   const [pendingApprovals, setPendingApprovals] = useState([]);
   // ✅ DEFINE FIRST
   const fetchAll = useCallback(async () => {
@@ -44,6 +53,7 @@ export default function DashboardPage() {
         fetchRecentTx(),
         fetchChartData(),
         fetchPendingApprovals(),
+        fetchVerificationQueue(),
       ]);
     } catch (err) {
       console.error("fetchAll error:", err);
@@ -101,6 +111,49 @@ export default function DashboardPage() {
       .eq("status", "pending")
       .eq("transactions.status", "pending");
     if (data) setPendingApprovals(data);
+  };
+
+  // Collect verification-queue numbers for the dashboard widget.
+  // Mirrors the dual-control rules: a member counts items they're
+  // eligible to verify/back-fill (admin deposits + their own
+  // verifier role if admin).
+  const fetchVerificationQueue = async () => {
+    if (!profile?.id) return;
+
+    // Pending verifications eligible for ME
+    let pendingQ = supabase
+      .from('transactions')
+      .select('transaction_date, profiles!transactions_user_id_fkey!inner(role)', { count: 'exact' })
+      .eq('type', 'deposit')
+      .eq('status', 'pending_verification')
+      .neq('user_id', profile.id)
+      .order('transaction_date', { ascending: true })
+      .limit(1);
+    if (!isAdmin) pendingQ = pendingQ.eq('profiles.role', 'admin');
+    const { data: pendingData, count: pendingCount } = await pendingQ;
+
+    let oldestDays = 0;
+    if (pendingData && pendingData.length > 0) {
+      const oldest = new Date(pendingData[0].transaction_date).getTime();
+      oldestDays = Math.floor((Date.now() - oldest) / (24 * 60 * 60 * 1000));
+    }
+
+    // Back-fillable for ME
+    let bfQ = supabase
+      .from('transactions')
+      .select('id, profiles!transactions_user_id_fkey!inner(role)', { count: 'exact', head: true })
+      .eq('type', 'deposit')
+      .eq('status', 'completed')
+      .is('bank_verification_code', null)
+      .neq('user_id', profile.id);
+    if (!isAdmin) bfQ = bfQ.eq('profiles.role', 'admin');
+    const { count: bfCount } = await bfQ;
+
+    setVerifQueue({
+      pending:    pendingCount || 0,
+      oldestDays,
+      backfill:   bfCount || 0,
+    });
   };
 
   const fetchStats = async () => {
@@ -416,6 +469,82 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* ── Verification queue widget ───────────────────────
+          Shown whenever the current user has anything to act on.
+          Pending = deposits awaiting initial verification.
+          Back-fill = legacy completed deposits missing bank codes.
+          Both counts are scoped to what THIS user can actually act on. */}
+      {!loading && (verifQueue.pending > 0 || verifQueue.backfill > 0) && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 16,
+            borderLeft: '4px solid var(--accent-amber)',
+            padding: 16,
+            cursor: 'pointer',
+          }}
+          onClick={() => navigate('/transactions')}
+          title="Open the Transactions page to act on these"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div
+              style={{
+                background: 'rgba(230,144,10,0.12)',
+                color: 'var(--accent-amber)',
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <ShieldCheck size={20} />
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                Verification Queue
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                {verifQueue.pending > 0 && (
+                  <>
+                    <strong>{verifQueue.pending}</strong> awaiting verification
+                    {verifQueue.oldestDays > 0 &&
+                      ` (oldest: ${verifQueue.oldestDays} day${verifQueue.oldestDays === 1 ? '' : 's'})`}
+                  </>
+                )}
+                {verifQueue.pending > 0 && verifQueue.backfill > 0 && ' · '}
+                {verifQueue.backfill > 0 && (
+                  <>
+                    <strong>{verifQueue.backfill}</strong> legacy deposit
+                    {verifQueue.backfill === 1 ? '' : 's'} need bank code
+                    {verifQueue.backfill === 1 ? '' : 's'}
+                  </>
+                )}
+              </div>
+            </div>
+            <button
+              className="btn btn-sm"
+              style={{
+                background: 'var(--accent-amber)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                fontWeight: 600,
+                padding: '6px 12px',
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/transactions');
+              }}
+            >
+              Open →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Charts — stacks to 1 col on mobile via .dashboard-charts-grid */}
       <div className="dashboard-charts-grid">

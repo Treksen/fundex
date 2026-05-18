@@ -14,18 +14,38 @@ export default function LoginPage() {
   const [error, setError] = useState('')
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    const { error } = await signIn(email, password)
-    setLoading(false)
-    if (error) {
-      setError(error.message || 'Invalid credentials')
-    } else {
-      toast.success('Welcome back!')
-      navigate('/')
+    e.preventDefault();
+
+    // Check internet before login attempt
+    if (!navigator.onLine) {
+      setError("No internet connection. Please connect to a network.");
+      return;
     }
-  }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      const { error } = await signIn(email, password);
+
+      if (error) {
+        // Better network message
+        if (error.message?.includes("Failed to fetch")) {
+          setError("Unable to connect. Please check your internet connection.");
+        } else {
+          setError(error.message || "Invalid credentials");
+        }
+      } else {
+        toast.success("Welcome back!");
+        navigate("/");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={{

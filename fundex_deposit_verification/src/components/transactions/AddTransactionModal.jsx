@@ -96,15 +96,6 @@ export default function AddTransactionModal({ onClose, onSuccess, preselectedUse
       return
     }
 
-    // Deposits MUST carry the depositor's M-Pesa/bank reference so
-    // the verifier has something to cross-check against the bank
-    // statement. Withdrawals and adjustments can still go without
-    // a reference (the system generates a statement_no).
-    if (form.type === 'deposit' && (!form.reference || form.reference.trim().length === 0)) {
-      toast.error('M-Pesa / Bank reference is required for deposits')
-      return
-    }
-
     // Block non-admin overdraft
     if (analysis?.isOverdraft && !isAdmin) {
       toast.error('Withdrawal exceeds available equity. Only an admin can authorise overdraft withdrawals.')
@@ -168,11 +159,37 @@ export default function AddTransactionModal({ onClose, onSuccess, preselectedUse
       return
     }
 
-    // For deposits: notifications to verifier(s) are now fired by
-    // the trg_pending_verification_notifications DB trigger
-    // (migration 025), which also drives the email send via the
-    // existing Resend webhook on the notifications table.
-    // Nothing to do here for deposits.
+    // For deposits: do NOT snapshot ownership yet — that happens
+    // inside verify_deposit() once an admin confirms the funds.
+    // Instead, notify the admin(s) (or other members, if an admin
+    // is the depositor) that a deposit is awaiting verification.
+    if (form.type === 'deposit') {
+      // Who needs to verify this?
+      //  - If depositor is a regular member  → all admins.
+      //  - If depositor is an admin          → all other members.
+      const depositorIsAdmin =
+        members.find(m => m.id === form.user_id)?.role === 'admin'
+
+      const verifiers = depositorIsAdmin
+        ? members.filter(m => m.id !== form.user_id)
+        : members.filter(m => m.role === 'admin' && m.id !== form.user_id)
+
+      if (verifiers.length > 0) {
+        await supabase.from('notifications').insert(
+          verifiers.map(v => ({
+            user_id: v.id,
+            title: '🕓 Deposit Awaiting Verification',
+            message:
+              `${members.find(m => m.id === form.user_id)?.name || profile.name}` +
+              ` recorded a deposit of ${formatCurrency(amount)}` +
+              (form.reference ? ` (Ref: ${form.reference})` : '') +
+              `. Please confirm the funds in the bank and add the bank verification code.`,
+            type: 'approval',
+            action_url: `/transactions?pending=${tx.id}`,
+          }))
+        )
+      }
+    }
 
     // Create withdrawal approval requests for ALL other members
     if (form.type === 'withdrawal') {
@@ -428,14 +445,13 @@ export default function AddTransactionModal({ onClose, onSuccess, preselectedUse
             <div className="form-group">
               <label className="form-label">
                 {form.type === 'deposit'
-                  ? <>Your M-Pesa / Bank Reference Code <span style={{ color: 'var(--accent-red)' }}>*</span></>
+                  ? 'Your M-Pesa / Bank Reference Code'
                   : 'Bank Reference Code'}
               </label>
               <input className="form-input" name="reference" type="text"
                 placeholder={form.type === 'deposit'
                   ? 'e.g. SLK5XB9PQ2 — the code from your M-Pesa or bank transfer'
                   : 'e.g. UDG4B1JKL2'}
-                required={form.type === 'deposit'}
                 value={form.reference} onChange={handleChange} />
               {form.type === 'deposit' && (
                 <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>

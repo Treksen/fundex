@@ -137,36 +137,102 @@ export default function BankReconciliationPage() {
           <div className="empty-state"><p>No reconciliation entries{filterStatus || search ? ' matching filters' : ''}</p></div>
         ) : (
           <>
-            {/* Desktop table */}
-            <div className="table-container" style={{ border: 'none', borderRadius: 0, display: 'none' }} id="recon-desktop">
-              <table>
-                <thead><tr><th>Bank Date</th><th>Description</th><th>Bank Amount</th><th>Reference</th><th>Status</th><th>Matched To</th>{isAdmin && <th>Actions</th>}</tr></thead>
+            {/* Desktop table (hidden under 768px via main.css) */}
+            <div className="table-container recon-table-view" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="recon-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 100 }}>Bank Date</th>
+                    <th style={{ width: 130 }}>Amount</th>
+                    <th style={{ width: 150 }}>Deposit Ref</th>
+                    <th style={{ width: 180 }}>Bank Ref</th>
+                    <th style={{ width: 110 }}>Status</th>
+                    <th>Matched To</th>
+                    <th>Description</th>
+                    {isAdmin && <th style={{ width: 90 }}>Actions</th>}
+                  </tr>
+                </thead>
                 <tbody>
                   {filtered.map(entry => {
                     const scfg = STATUS_CONFIG[entry.match_status] || STATUS_CONFIG.unmatched
                     return (
                       <tr key={entry.id} style={{ opacity: deletingId === entry.id ? 0.4 : 1 }}>
-                        <td className="text-sm">{formatDate(entry.bank_date)}</td>
-                        <td className="text-sm">{entry.bank_description || '—'}</td>
-                        <td className="text-mono font-bold">{formatCurrency(entry.bank_amount)}</td>
-                        <td className="text-sm text-muted">{entry.bank_reference || '—'}</td>
-                        <td><span className={`badge ${scfg.badge}`}>{scfg.label}</span></td>
-                        <td className="text-sm text-secondary">
-                          {entry.transactions ? `${formatCurrency(entry.transactions.amount)} — ${entry.transactions.profiles?.name?.split(' ')[0]}` : (
+                        <td className="text-sm" style={{ whiteSpace: 'nowrap' }}>
+                          {formatDate(entry.bank_date)}
+                        </td>
+                        <td className="text-mono font-bold" style={{ whiteSpace: 'nowrap' }}>
+                          {formatCurrency(entry.bank_amount)}
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
+                          {entry.transactions?.reference || <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                          {entry.bank_reference ? (
+                            <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }} title="Bank-side verification code">
+                              ✓ {entry.bank_reference}
+                            </span>
+                          ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                        </td>
+                        <td>
+                          <span className={`badge ${scfg.badge}`} style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                            {scfg.label}
+                          </span>
+                        </td>
+                        <td className="text-sm">
+                          {entry.transactions ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600 }}>
+                                {formatCurrency(entry.transactions.amount)}
+                              </span>
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                {entry.transactions.profiles?.name || '—'}
+                              </span>
+                            </div>
+                          ) : (
                             isAdmin && entry.match_status === 'unmatched' && matchingId === entry.id ? (
-                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                <select className="form-select" style={{ fontSize: 11 }} value={selectedTxId[entry.id] || ''} onChange={e => setSelectedTxId(p => ({ ...p, [entry.id]: e.target.value }))}>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <select
+                                  className="form-select"
+                                  style={{ fontSize: 11, minWidth: 180 }}
+                                  value={selectedTxId[entry.id] || ''}
+                                  onChange={e => setSelectedTxId(p => ({ ...p, [entry.id]: e.target.value }))}
+                                >
                                   <option value="">Select transaction…</option>
-                                  {transactions.map(t => <option key={t.id} value={t.id}>{formatDate(t.transaction_date)} — {formatCurrency(t.amount)} ({t.profiles?.name?.split(' ')[0]})</option>)}
+                                  {transactions.map(t => (
+                                    <option key={t.id} value={t.id}>
+                                      {formatDate(t.transaction_date)} — {formatCurrency(t.amount)} ({t.profiles?.name?.split(' ')[0]})
+                                    </option>
+                                  ))}
                                 </select>
-                                <button className="btn btn-primary btn-sm" onClick={() => matchEntry(entry.id, selectedTxId[entry.id])}>Match</button>
+                                <button className="btn btn-primary btn-sm" onClick={() => matchEntry(entry.id, selectedTxId[entry.id])}>
+                                  Match
+                                </button>
+                                <button className="btn btn-secondary btn-sm" onClick={() => setMatchingId(null)}>
+                                  Cancel
+                                </button>
                               </div>
                             ) : isAdmin ? (
-                              <button className="recon-match-btn" onClick={() => setMatchingId(entry.id)}>Match →</button>
-                            ) : '—'
+                              <button className="recon-match-btn" onClick={() => setMatchingId(entry.id)}>
+                                Match →
+                              </button>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )
                           )}
                         </td>
-                        {isAdmin && <td><AdminActions onEdit={() => setEditEntry(entry)} onDelete={() => deleteEntry(entry.id)} deleting={deletingId === entry.id} size="xs" /></td>}
+                        <td className="text-sm" style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                          {entry.bank_description || <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                        </td>
+                        {isAdmin && (
+                          <td>
+                            <AdminActions
+                              onEdit={() => setEditEntry(entry)}
+                              onDelete={() => deleteEntry(entry.id)}
+                              deleting={deletingId === entry.id}
+                              size="xs"
+                            />
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
@@ -174,12 +240,12 @@ export default function BankReconciliationPage() {
               </table>
             </div>
 
-            {/* Mobile + all-screen cards */}
-            <div>
+            {/* Mobile cards (hidden over 768px via main.css) */}
+            <div className="mobile-recon-list">
               {filtered.map(entry => {
                 const scfg = STATUS_CONFIG[entry.match_status] || STATUS_CONFIG.unmatched
                 return (
-                  <div key={`m-${entry.id}`} style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', opacity: deletingId === entry.id ? 0.4 : 1 }}>
+                  <div key={`m-${entry.id}`} className="mobile-recon-card" style={{ opacity: deletingId === entry.id ? 0.4 : 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -187,7 +253,19 @@ export default function BankReconciliationPage() {
                           <span className={`badge ${scfg.badge}`} style={{ fontSize: 10 }}>{scfg.label}</span>
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                          {formatDate(entry.bank_date)} · {entry.bank_description || entry.bank_reference || '—'}
+                          {formatDate(entry.bank_date)} · {entry.bank_description || '—'}
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4, fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+                          {entry.transactions?.reference && (
+                            <span style={{ color: 'var(--text-secondary)' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Deposit:</span> {entry.transactions.reference}
+                            </span>
+                          )}
+                          {entry.bank_reference && (
+                            <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>Bank:</span> ✓ {entry.bank_reference}
+                            </span>
+                          )}
                         </div>
                         {entry.transactions && (
                           <div style={{ fontSize: 12, color: 'var(--accent-emerald)', marginTop: 2 }}>

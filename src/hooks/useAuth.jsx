@@ -76,11 +76,44 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { data, error };
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      // Supabase auth errors
+      if (error) {
+        return {
+          data: null,
+          error: {
+            message: error.message,
+          },
+        };
+      }
+
+      return { data, error: null };
+    } catch (err) {
+      console.error("Sign in failed:", err);
+
+      // Network / offline error
+      if (err.message?.includes("Failed to fetch") || !navigator.onLine) {
+        return {
+          data: null,
+          error: {
+            message:
+              "No internet connection. Please connect to a network and try again.",
+          },
+        };
+      }
+
+      return {
+        data: null,
+        error: {
+          message: "Something went wrong. Please try again.",
+        },
+      };
+    }
   };
 
   const signOut = async () => {

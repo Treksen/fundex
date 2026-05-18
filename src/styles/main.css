@@ -453,6 +453,41 @@ tr:hover td { background: var(--bg-hover); }
   margin-top: 10px;
 }
 
+/* ── Reconciliation page ─────────────────────────────────── */
+/* Desktop table — show by default, hidden under 768px */
+.recon-table-view { display: block; }
+.recon-table-view table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.recon-table-view th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev-1, transparent);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.recon-table-view td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.recon-table-view tbody tr:hover { background: var(--bg-hover); }
+.recon-table-view tbody tr:last-child td { border-bottom: none; }
+
+/* Mobile cards — hidden by default, shown under 768px */
+.mobile-recon-list { display: none; }
+.mobile-recon-card {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.mobile-recon-card:last-child { border-bottom: none; }
+.mobile-recon-card:hover { background: var(--bg-hover); }
+
 /* Audit log mobile cards */
 .mobile-audit-card {
   display: none;
@@ -533,6 +568,8 @@ tr:hover td { background: var(--bg-hover); }
   .mobile-tx-card   { display: flex; }
   .audit-table-view { display: none !important; }
   .mobile-audit-card { display: flex; }
+  .recon-table-view { display: none !important; }
+  .mobile-recon-list { display: block; }
 
   /* ── Reports ── */
   .reports-contrib-table thead { display: none; }
