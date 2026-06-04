@@ -1621,20 +1621,34 @@ export default function TransactionsPage() {
                               .slice(0, 2)
                               .join(" ")}
                           </div>
-                          <div className="mobile-tx-card-sub" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                            {tx.reference ? (
-                              <span>
-                                <span style={{ color: 'var(--text-muted)', fontFamily: 'inherit', fontSize: 10 }}>Dep: </span>
-                                {tx.reference}
-                              </span>
-                            ) : (tx.description || "—")}
-                            {tx.type === 'deposit' && tx.bank_verification_code && (
-                              <span style={{ marginLeft: 8, color: 'var(--accent-emerald)', fontWeight: 600 }}>
-                                <span style={{ color: 'var(--text-muted)', fontFamily: 'inherit', fontSize: 10, fontWeight: 400 }}>Bank: </span>
-                                ✓ {tx.bank_verification_code}
-                              </span>
-                            )}
-                          </div>
+                          {/* Refs stacked on two lines so neither gets ellipsized
+                              by the narrow card width. Falls back to description
+                              when there's no reference at all. */}
+                          {tx.type === 'deposit' && (tx.reference || tx.bank_verification_code) ? (
+                            <div className="mobile-tx-card-refs">
+                              {tx.reference && (
+                                <div className="mobile-tx-card-ref-line" title={tx.reference}>
+                                  <span className="mobile-tx-card-ref-label">Dep:</span>{' '}
+                                  <span className="mobile-tx-card-ref-value">{tx.reference}</span>
+                                </div>
+                              )}
+                              {tx.bank_verification_code && (
+                                <div
+                                  className="mobile-tx-card-ref-line mobile-tx-card-ref-bank"
+                                  title={`Bank verification code: ${tx.bank_verification_code}`}
+                                >
+                                  <span className="mobile-tx-card-ref-label">Bank:</span>{' '}
+                                  <span className="mobile-tx-card-ref-value">
+                                    ✓ {tx.bank_verification_code}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="mobile-tx-card-sub">
+                              {tx.reference || tx.description || "—"}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <span

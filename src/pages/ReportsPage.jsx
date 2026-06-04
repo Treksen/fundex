@@ -75,13 +75,13 @@ export default function ReportsPage() {
       const pageW = doc.internal.pageSize.width
       doc.setFillColor(10, 22, 40); doc.rect(0, 0, pageW, 40, 'F')
       doc.setTextColor(212, 168, 67); doc.setFontSize(20); doc.setFont('helvetica', 'bold')
-      doc.text('Fundex SAVINGS & INVESTMENT', pageW / 2, 18, { align: 'center' })
+      doc.text('Fundex Savings & Investments', pageW / 2, 18, { align: 'center' })
       doc.setFontSize(10); doc.setTextColor(143, 163, 200)
       doc.text('Financial Report — Generated ' + formatDateTime(new Date()), pageW / 2, 28, { align: 'center' })
       doc.setTextColor(30, 30, 30); doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text('Summary', 14, 52)
       autoTable(doc, { startY: 56, head: [['Metric', 'Value']], body: [['Total Pool Balance', formatCurrency(totalPool)], ['Total Deposits', formatCurrency(totalDeposits)], ['Total Withdrawals', formatCurrency(totalWithdrawals)], ['Total Invested', formatCurrency(totalInvested)], ['Total Returns', formatCurrency(totalReturns)]], styles: { fontSize: 10 }, headStyles: { fillColor: [10, 22, 40], textColor: [212, 168, 67] } })
       doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text('Member Contributions', 14, doc.lastAutoTable.finalY + 14)
-      autoTable(doc, { startY: doc.lastAutoTable.finalY + 18, head: [['Member', 'Role', 'Total Deposits', 'Withdrawals', 'Net Contribution']], body: data.contributions.map(c => [c.name, c.role, formatCurrency(c.total_deposits), formatCurrency(c.total_withdrawals), formatCurrency(c.net_contribution)]), styles: { fontSize: 10 }, headStyles: { fillColor: [10, 22, 40], textColor: [212, 168, 67] } })
+      autoTable(doc, { startY: doc.lastAutoTable.finalY + 18, head: [['Member','Total Deposits', 'Withdrawals', 'Net Contribution']], body: data.contributions.map(c => [c.name, formatCurrency(c.total_deposits), formatCurrency(c.total_withdrawals), formatCurrency(c.net_contribution)]), styles: { fontSize: 10 }, headStyles: { fillColor: [10, 22, 40], textColor: [212, 168, 67] } })
       if (data.transactions.length > 0) {
         doc.addPage(); doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text('Transaction Log', 14, 20)
         autoTable(doc, { startY: 24, head: [['Date', 'Member', 'Type', 'Amount', 'Reference', 'Status']], body: data.transactions.map(t => [formatDate(t.transaction_date), (t.profiles?.name?.split(' ')[0] || '') + ' ' + (t.profiles?.name?.split(' ')[1] || ''), t.type, formatCurrency(t.amount), t.reference || '—', t.status]), styles: { fontSize: 9 }, headStyles: { fillColor: [10, 22, 40], textColor: [212, 168, 67] } })
