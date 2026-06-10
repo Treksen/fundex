@@ -53,6 +53,13 @@ export default function TransactionsPage() {
   const [rejectReason, setRejectReason] = useState({})
   const [rejectBusy, setRejectBusy] = useState({})
 
+  // Admin "correct bank code" state — lets an admin fix a wrong
+  // bank_verification_code on an already-verified deposit.
+  const [correctingTx, setCorrectingTx] = useState(null)
+  const [correctCode, setCorrectCode] = useState({})
+  const [correctReason, setCorrectReason] = useState({})
+  const [correctBusy, setCorrectBusy] = useState({})
+
   // When TRUE, only show completed deposits without a bank_verification_code
   // (i.e. legacy rows the admin still needs to back-fill).
   const [needsBackfillOnly, setNeedsBackfillOnly] = useState(false)
@@ -469,6 +476,38 @@ export default function TransactionsPage() {
     await fetchData()
   }
 
+  // ── CORRECT BANK CODE: admin fixes a wrong bank_verification_code ──
+  const handleCorrectBankCode = async (tx) => {
+    const code   = (correctCode[tx.id]   || '').trim()
+    const reason = (correctReason[tx.id] || '').trim()
+    if (code.length < 3) {
+      toast.error('New bank code must be at least 3 characters')
+      return
+    }
+    setCorrectBusy(b => ({ ...b, [tx.id]: true }))
+    const { data, error } = await supabase.rpc('correct_bank_verification_code', {
+      p_transaction_id: tx.id,
+      p_new_bank_code:  code,
+      p_reason:         reason || null,
+    })
+    if (error) {
+      toast.error('Correction failed: ' + error.message)
+      setCorrectBusy(b => ({ ...b, [tx.id]: false }))
+      return
+    }
+    if (data && data.success === false) {
+      toast.error(data.error || 'Correction refused')
+      setCorrectBusy(b => ({ ...b, [tx.id]: false }))
+      return
+    }
+    toast.success('Bank code corrected — reconciliation and audit log updated')
+    setCorrectingTx(null)
+    setCorrectCode(c   => ({ ...c, [tx.id]: '' }))
+    setCorrectReason(r => ({ ...r, [tx.id]: '' }))
+    setCorrectBusy(b   => ({ ...b, [tx.id]: false }))
+    await fetchData()
+  }
+
   // ── BACK-FILL: stamping a bank code onto an OLD completed deposit ──
   // Mirrors verify_deposit / backfill_deposit_verification dual-control:
   //  - tx is already 'completed' (legacy data)
@@ -882,6 +921,12 @@ export default function TransactionsPage() {
                     const showVerifyRow = verifyingTx === tx.id;
                     const iCanVerify = canVerifyDeposit(tx);
                     const iCanBackfill = canBackfillDeposit(tx);
+                    // Admin can correct the bank code on any verified deposit
+                    const canCorrectCode = isAdmin &&
+                      tx.type === 'deposit' &&
+                      tx.status === 'completed' &&
+                      !!tx.bank_verification_code;
+                    const showCorrectRow = correctingTx === tx.id;
 
                     return (
                       <React.Fragment key={tx.id}>
@@ -1137,6 +1182,32 @@ export default function TransactionsPage() {
                                   }}
                                 >
                                   <ShieldCheck size={11} /> Add Code
+                                </button>
+                              )}
+                              {canCorrectCode && (
+                                <button
+                                  className="btn btn-sm"
+                                  onClick={() =>
+                                    setCorrectingTx(
+                                      showCorrectRow ? null : tx.id
+                                    )
+                                  }
+                                  title="Correct the bank verification code"
+                                  style={{
+                                    fontSize: 11,
+                                    padding: "3px 8px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    background: "transparent",
+                                    color: "var(--accent-amber)",
+                                    border: "1px solid var(--accent-amber)",
+                                    borderRadius: 6,
+                                    cursor: "pointer",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  <Edit2 size={11} /> Fix Code
                                 </button>
                               )}
                               {isAdmin && (
@@ -1493,6 +1564,83 @@ export default function TransactionsPage() {
                           </tr>
                         )}
 
+                        {/* Correct bank code row — admin only */}
+                        {canCorrectCode && showCorrectRow && (
+                          <tr key={`${tx.id}-correct`}>
+                            <td
+                              colSpan={8}
+                              style={{
+                                padding: '10px 16px 14px',
+                                background: 'rgba(230,144,10,0.05)',
+                                borderLeft: '3px solid var(--accent-amber)',
+                              }}
+                            >
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
+                                <div style={{ flex: '1 1 100%', marginBottom: 4 }}>
+                                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+                                    Current bank code:{' '}
+                                    <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald)' }}>
+                                      {tx.bank_verification_code}
+                                    </strong>
+                                  </p>
+                                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                    Enter the correct bank reference code. The old code will be saved in the audit log.
+                                    The reconciliation entry will be updated automatically.
+                                  </p>
+                                </div>
+                                <div style={{ flex: '1 1 220px', minWidth: 180 }}>
+                                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+                                    Correct Bank Code <span style={{ color: 'var(--accent-red)' }}>*</span>
+                                  </p>
+                                  <input
+                                    className="form-input"
+                                    placeholder="e.g. BNK-2026-04-871234"
+                                    value={correctCode[tx.id] || ''}
+                                    onChange={e => setCorrectCode(c => ({ ...c, [tx.id]: e.target.value }))}
+                                    style={{ fontSize: 13 }}
+                                    autoFocus
+                                  />
+                                </div>
+                                <div style={{ flex: '1 1 200px', minWidth: 160 }}>
+                                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+                                    Reason (optional)
+                                  </p>
+                                  <input
+                                    className="form-input"
+                                    placeholder="e.g. Typo in original entry"
+                                    value={correctReason[tx.id] || ''}
+                                    onChange={e => setCorrectReason(r => ({ ...r, [tx.id]: e.target.value }))}
+                                    style={{ fontSize: 13 }}
+                                  />
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button
+                                    className="btn btn-primary btn-sm"
+                                    disabled={correctBusy[tx.id]}
+                                    onClick={() => handleCorrectBankCode(tx)}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                  >
+                                    {correctBusy[tx.id]
+                                      ? <div className="spinner" style={{ width: 12, height: 12 }} />
+                                      : <><Edit2 size={12} /> Save Correction</>
+                                    }
+                                  </button>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => {
+                                      setCorrectingTx(null)
+                                      setCorrectCode(c => ({ ...c, [tx.id]: '' }))
+                                      setCorrectReason(r => ({ ...r, [tx.id]: '' }))
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+
                         {/* Reject-reason row */}
                         {rejectingTx === tx.id && (
                           <tr key={`${tx.id}-reject`}>
@@ -1585,6 +1733,11 @@ export default function TransactionsPage() {
                 const showVerifyRow = verifyingTx === tx.id;
                 const iCanVerify = canVerifyDeposit(tx);
                 const iCanBackfill = canBackfillDeposit(tx);
+                const canCorrectCode = isAdmin &&
+                  tx.type === 'deposit' &&
+                  tx.status === 'completed' &&
+                  !!tx.bank_verification_code;
+                const showCorrectRow = correctingTx === tx.id;
                 return (
                   <div
                     key={`mob-${tx.id}`}
@@ -1744,6 +1897,81 @@ export default function TransactionsPage() {
                         >
                           <Trash2 size={11} /> Delete
                         </button>
+                      </div>
+                    )}
+
+                    {/* Mobile: admin fix-wrong-code panel */}
+                    {canCorrectCode && (
+                      <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
+                        {!showCorrectRow ? (
+                          <button
+                            className="btn btn-sm"
+                            style={{
+                              width: '100%',
+                              display: 'inline-flex', alignItems: 'center',
+                              justifyContent: 'center', gap: 6,
+                              background: 'transparent',
+                              color: 'var(--accent-amber)',
+                              border: '1px solid var(--accent-amber)',
+                              borderRadius: 6, fontWeight: 600, padding: '6px 10px',
+                            }}
+                            onClick={() => setCorrectingTx(tx.id)}
+                          >
+                            <Edit2 size={13} /> Fix Bank Code
+                          </button>
+                        ) : (
+                          <div style={{
+                            background: 'rgba(230,144,10,0.06)',
+                            border: '1px solid rgba(230,144,10,0.22)',
+                            borderRadius: 8, padding: 10,
+                          }}>
+                            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                              Current:{' '}
+                              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald)', fontWeight: 600 }}>
+                                {tx.bank_verification_code}
+                              </span>
+                            </p>
+                            <input
+                              className="form-input"
+                              placeholder="Correct bank code"
+                              value={correctCode[tx.id] || ''}
+                              onChange={e => setCorrectCode(c => ({ ...c, [tx.id]: e.target.value }))}
+                              style={{ fontSize: 13, marginBottom: 6 }}
+                              autoFocus
+                            />
+                            <input
+                              className="form-input"
+                              placeholder="Reason (optional)"
+                              value={correctReason[tx.id] || ''}
+                              onChange={e => setCorrectReason(r => ({ ...r, [tx.id]: e.target.value }))}
+                              style={{ fontSize: 13, marginBottom: 8 }}
+                            />
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                className="btn btn-primary btn-sm"
+                                disabled={correctBusy[tx.id]}
+                                style={{ flex: 1 }}
+                                onClick={() => handleCorrectBankCode(tx)}
+                              >
+                                {correctBusy[tx.id]
+                                  ? <div className="spinner" style={{ width: 12, height: 12 }} />
+                                  : 'Save'
+                                }
+                              </button>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                style={{ flex: 1 }}
+                                onClick={() => {
+                                  setCorrectingTx(null)
+                                  setCorrectCode(c => ({ ...c, [tx.id]: '' }))
+                                  setCorrectReason(r => ({ ...r, [tx.id]: '' }))
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
