@@ -441,42 +441,6 @@ tr:hover td { background: var(--bg-hover); }
 .mobile-tx-card-info { flex: 1; min-width: 0; }
 .mobile-tx-card-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .mobile-tx-card-sub  { font-size: 11px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* Stacked references on mobile transaction cards.
-   Two lines (Dep / Bank) instead of one cramped line that
-   ellipsizes the bank code. Each line is its own row, free
-   to ellipsize independently if extremely long. */
-.mobile-tx-card-refs {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin-top: 2px;
-  font-family: var(--font-mono);
-}
-.mobile-tx-card-ref-line {
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-secondary);
-  line-height: 1.35;
-}
-.mobile-tx-card-ref-label {
-  display: inline-block;
-  min-width: 32px;
-  color: var(--text-muted);
-  font-family: var(--font-sans, inherit);
-  font-size: 10px;
-  font-weight: 400;
-  text-transform: none;
-}
-.mobile-tx-card-ref-value {
-  font-family: var(--font-mono);
-}
-.mobile-tx-card-ref-bank .mobile-tx-card-ref-value {
-  color: var(--accent-emerald);
-  font-weight: 600;
-}
 .mobile-tx-card-amount { font-family: var(--font-mono); font-size: 15px; font-weight: 700; flex-shrink: 0; }
 .mobile-tx-card-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 
@@ -523,6 +487,40 @@ tr:hover td { background: var(--bg-hover); }
 }
 .mobile-recon-card:last-child { border-bottom: none; }
 .mobile-recon-card:hover { background: var(--bg-hover); }
+
+/* ── Error Log page ─────────────────────────────────────── */
+.error-log-table-view { display: block; }
+.error-log-table-view table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.error-log-table-view th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev-1, transparent);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.error-log-table-view td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.error-log-table-view tbody tr:hover { background: var(--bg-hover); }
+.error-log-table-view tbody tr:last-child td { border-bottom: none; }
+
+/* Mobile error cards — hidden by default, shown under 768px */
+.mobile-error-list { display: none; }
+.mobile-error-card {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+}
+.mobile-error-card:last-child { border-bottom: none; }
 
 /* Audit log mobile cards */
 .mobile-audit-card {
@@ -606,6 +604,8 @@ tr:hover td { background: var(--bg-hover); }
   .mobile-audit-card { display: flex; }
   .recon-table-view { display: none !important; }
   .mobile-recon-list { display: block; }
+  .error-log-table-view { display: none !important; }
+  .mobile-error-list { display: block; }
 
   /* ── Reports ── */
   .reports-contrib-table thead { display: none; }

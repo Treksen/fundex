@@ -16,6 +16,7 @@ import LedgerPage from './pages/LedgerPage'
 import GovernancePage from './pages/GovernancePage'
 import CashFlowPage from './pages/CashFlowPage'
 import './styles/main.css'
+import ErrorLogPage from "./pages/ErrorLogPage";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth()
@@ -42,25 +43,43 @@ function App() {
           position="top-right"
           toastOptions={{
             style: {
-              background: 'var(--bg-elevated)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border)',
-              fontFamily: 'var(--font-main)',
-              fontSize: '14px'
+              background: "var(--bg-elevated)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border)",
+              fontFamily: "var(--font-main)",
+              fontSize: "14px",
             },
-            success: { iconTheme: { primary: 'var(--accent-emerald)', secondary: 'var(--bg-base)' } },
-            error: { iconTheme: { primary: 'var(--accent-red)', secondary: 'var(--bg-base)' } }
+            success: {
+              iconTheme: {
+                primary: "var(--accent-emerald)",
+                secondary: "var(--bg-base)",
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: "var(--accent-red)",
+                secondary: "var(--bg-base)",
+              },
+            },
           }}
         />
         <Routes>
-          <Route path="/login" element={
-            <PublicRoute><LoginPage /></PublicRoute>
-          } />
-          <Route path="/" element={
-            <ProtectedRoute>
-              <AppShell />
-            </ProtectedRoute>
-          }>
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <LoginPage />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <AppShell />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<DashboardPage />} />
             <Route path="transactions" element={<TransactionsPage />} />
             <Route path="members" element={<MembersPage />} />
@@ -73,11 +92,12 @@ function App() {
             <Route path="cashflow" element={<CashFlowPage />} />
             <Route path="audit" element={<AuditPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="errorlog" element={<ErrorLogPage />} />
           </Route>
         </Routes>
       </AuthProvider>
     </BrowserRouter>
-  )
+  );
 }
 
 export default App

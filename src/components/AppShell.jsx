@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ArrowLeftRight, Users, TrendingUp,
   Target, FileBarChart, Shield, Settings, LogOut,
   Bell, Menu, X, ChevronRight, Download, Sun, Moon,
-  GitMerge, Lightbulb, BookOpen, Vote, BarChart2
+  GitMerge, Lightbulb, BookOpen, Vote, BarChart2, AlertTriangle
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
@@ -31,8 +31,9 @@ const NAV_ITEMS = [
 ]
 
 const ADMIN_ITEMS = [
-  { path: '/audit', icon: Shield, label: 'Audit Log' },
-  { path: '/settings', icon: Settings, label: 'Settings' },
+  { path: '/audit',     icon: Shield,        label: 'Audit Log'  },
+  { path: '/errorlog',  icon: AlertTriangle, label: 'Error Log'  },
+  { path: '/settings',  icon: Settings,      label: 'Settings'   },
 ]
 
 // Bottom nav shows most-used pages only
@@ -55,6 +56,7 @@ export default function AppShell() {
   const [pendingGovernance, setPendingGovernance] = useState(0)
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
+  const [openErrorCount, setOpenErrorCount] = useState(0)
 
   // Capture PWA install prompt
   useEffect(() => {
@@ -90,6 +92,8 @@ export default function AppShell() {
     fetchUnreadCount()
     fetchPendingApprovals()
     fetchPendingGovernance()
+    if (isAdmin) fetchOpenErrorCount()
+
     const notifChannel = supabase.channel('shell-notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` }, () => fetchUnreadCount())
       .subscribe()
@@ -100,7 +104,17 @@ export default function AppShell() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'action_approvals' }, () => fetchPendingGovernance())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'action_approval_votes' }, () => fetchPendingGovernance())
       .subscribe()
-    return () => { supabase.removeChannel(notifChannel); supabase.removeChannel(approvalChannel); supabase.removeChannel(govChannel) }
+    const errorChannel = supabase.channel('shell-errors')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'error_logs' }, () => {
+        if (isAdmin) fetchOpenErrorCount()
+      })
+      .subscribe()
+    return () => {
+      supabase.removeChannel(notifChannel)
+      supabase.removeChannel(approvalChannel)
+      supabase.removeChannel(govChannel)
+      supabase.removeChannel(errorChannel)
+    }
   }, [profile])
 
   const fetchUnreadCount = async () => {
@@ -111,6 +125,14 @@ export default function AppShell() {
   const fetchPendingApprovals = async () => {
     const { count } = await supabase.from('withdrawal_approvals').select('*, transactions!inner(status)', { count: 'exact', head: true }).eq('approver_id', profile.id).eq('status', 'pending').eq('transactions.status', 'pending')
     setPendingApprovals(count || 0)
+  }
+
+  const fetchOpenErrorCount = async () => {
+    const { count } = await supabase
+      .from('error_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('resolved', false)
+    setOpenErrorCount(count || 0)
   }
 
   const fetchPendingGovernance = async () => {
@@ -174,6 +196,11 @@ export default function AppShell() {
               {ADMIN_ITEMS.map(item => (
                 <NavLink key={item.path} to={item.path} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
                   <item.icon size={16} />{item.label}
+                  {item.path === '/errorlog' && openErrorCount > 0 && (
+                    <span className="nav-badge" style={{ marginLeft: 'auto', background: 'var(--accent-red)' }}>
+                      {openErrorCount}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </>
