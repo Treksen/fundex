@@ -11,7 +11,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'logo.jpeg', 'icons/*.png', 'images/*.jpg'],
       manifest: {
-        name: 'Fundex Savings & Investment',
+        name: 'Fundex',
         short_name: 'Fundex',
         description: 'Group Savings & Investment Management Platform',
         theme_color: '#5a8a1e',
