@@ -1,6 +1,6 @@
 # Deposit Verification — Full Implementation Notes
 
-This bundle delivers the complete admin-verification workflow for FundEx deposits, including back-fill of historical data, side-by-side reference display, and notifications/emails through the existing Resend pipeline.
+This bundle delivers the complete admin-verification workflow for Nitalink deposits, including back-fill of historical data, side-by-side reference display, and notifications/emails through the existing Resend pipeline.
 
 ## Files in this delivery
 

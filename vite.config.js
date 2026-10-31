@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'logo.jpeg', 'icons/*.png', 'images/*.jpg'],
       manifest: {
-        name: 'Fundex',
-        short_name: 'Fundex',
+        name: 'Nitalink',
+        short_name: 'Nitalink',
         description: 'Group Savings & Investment Management Platform',
         theme_color: '#5a8a1e',
         background_color: '#f0f2f0',

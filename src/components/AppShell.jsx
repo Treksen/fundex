@@ -77,7 +77,7 @@ export default function AppShell() {
     if (!deferredPrompt) return
     deferredPrompt.prompt()
     const { outcome } = await deferredPrompt.userChoice
-    if (outcome === 'accepted') toast.success('Fundex added to your home screen! 🎉')
+    if (outcome === 'accepted') toast.success('Nitalink added to your home screen! 🎉')
     setDeferredPrompt(null)
     setShowInstallBanner(false)
   }
@@ -160,7 +160,7 @@ export default function AppShell() {
   const getPageTitle = () => {
     const all = [...NAV_ITEMS, ...ADMIN_ITEMS]
     const match = all.find(item => item.path === location.pathname)
-    return match?.label || 'Fundex'
+    return match?.label || 'Nitalink'
   }
 
   return (
@@ -173,9 +173,9 @@ export default function AppShell() {
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-mark">
-            <div className="logo-icon"><img src="/logo.jpeg" alt="Fundex Savings" /></div>
+            <div className="logo-icon"><img src="/logo.jpeg" alt="Nitalink Savings" /></div>
             <div className="logo-text">
-              <span className="logo-name">Fundex</span>
+              <span className="logo-name">Nitalink</span>
               <span className="logo-tagline">Savings & Investment</span>
             </div>
           </div>
@@ -239,8 +239,8 @@ export default function AppShell() {
               {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             <div className="topbar-logo">
-              <img src="/logo.jpeg" alt="Fundex" />
-              <span>Fundex</span>
+              <img src="/logo.jpeg" alt="Nitalink" />
+              <span>Nitalink</span>
             </div>
             <h1 className="topbar-title">{getPageTitle()}</h1>
           </div>
@@ -310,10 +310,10 @@ export default function AppShell() {
       {/* PWA INSTALL BANNER */}
       <div className={`pwa-install-banner ${showInstallBanner ? 'visible' : ''}`}>
         <div style={{ width: 40, height: 40, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-          <img src="/logo.jpeg" alt="Fundex" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src="/logo.jpeg" alt="Nitalink" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div className="pwa-install-banner-text">
-          <div className="pwa-install-banner-title">Install Fundex App</div>
+          <div className="pwa-install-banner-title">Install Nitalink App</div>
           <div className="pwa-install-banner-sub">Add to home screen for quick access</div>
         </div>
         <button className="pwa-install-btn" onClick={handleInstallApp}>Install</button>

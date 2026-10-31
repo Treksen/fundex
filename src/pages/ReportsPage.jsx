@@ -75,7 +75,7 @@ export default function ReportsPage() {
       const pageW = doc.internal.pageSize.width
       doc.setFillColor(10, 22, 40); doc.rect(0, 0, pageW, 40, 'F')
       doc.setTextColor(212, 168, 67); doc.setFontSize(20); doc.setFont('helvetica', 'bold')
-      doc.text('Fundex Savings & Investments', pageW / 2, 18, { align: 'center' })
+      doc.text('Nitalink Savings & Investments', pageW / 2, 18, { align: 'center' })
       doc.setFontSize(10); doc.setTextColor(143, 163, 200)
       doc.text('Financial Report — Generated ' + formatDateTime(new Date()), pageW / 2, 28, { align: 'center' })
       doc.setTextColor(30, 30, 30); doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text('Summary', 14, 52)
@@ -90,7 +90,7 @@ export default function ReportsPage() {
         doc.addPage(); doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text('Investment Portfolio', 14, 20)
         autoTable(doc, { startY: 24, head: [['Title', 'Type', 'Invested', 'Returns', 'ROI', 'Status']], body: data.investments.map(i => { const roi = Number(i.amount_invested) > 0 ? ((Number(i.actual_return || 0) / Number(i.amount_invested)) * 100).toFixed(1) : '0'; return [i.title, i.investment_type, formatCurrency(i.amount_invested), formatCurrency(i.actual_return || 0), roi + '%', i.status] }), styles: { fontSize: 10 }, headStyles: { fillColor: [10, 22, 40], textColor: [212, 168, 67] } })
       }
-      doc.save(`Fundex-report-${formatDate(new Date(), 'yyyy-MM-dd')}.pdf`)
+      doc.save(`Nitalink-report-${formatDate(new Date(), 'yyyy-MM-dd')}.pdf`)
       toast.success('PDF report downloaded!')
     } catch (err) { toast.error('PDF export failed: ' + err.message) }
     setExporting('')
@@ -101,13 +101,13 @@ export default function ReportsPage() {
     try {
       const XLSX = await import('xlsx')
       const wb = XLSX.utils.book_new()
-      const summaryData = [['Fundex SAVINGS & INVESTMENT - FINANCIAL REPORT'], ['Generated:', formatDateTime(new Date())], [], ['SUMMARY'], ['Total Pool Balance', totalPool], ['Total Deposits', totalDeposits], ['Total Withdrawals', totalWithdrawals], ['Total Invested', totalInvested], ['Total Returns', totalReturns]]
+      const summaryData = [['Nitalink SAVINGS & INVESTMENT - FINANCIAL REPORT'], ['Generated:', formatDateTime(new Date())], [], ['SUMMARY'], ['Total Pool Balance', totalPool], ['Total Deposits', totalDeposits], ['Total Withdrawals', totalWithdrawals], ['Total Invested', totalInvested], ['Total Returns', totalReturns]]
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), 'Summary')
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Name', 'Role', 'Total Deposits', 'Total Withdrawals', 'Net Contribution'], ...data.contributions.map(c => [c.name, c.role, Number(c.total_deposits), Number(c.total_withdrawals), Number(c.net_contribution)])]), 'Contributions')
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Date', 'Member', 'Type', 'Amount', 'Reference', 'Description', 'Status'], ...data.transactions.map(t => [formatDateTime(t.transaction_date), t.profiles?.name, t.type, Number(t.amount), t.reference || '', t.description || '', t.status])]), 'Transactions')
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Title', 'Type', 'Amount Invested', 'Actual Return', 'ROI %', 'Status', 'Start Date', 'End Date'], ...data.investments.map(i => { const roi = Number(i.amount_invested) > 0 ? ((Number(i.actual_return || 0) / Number(i.amount_invested)) * 100).toFixed(2) : '0'; return [i.title, i.investment_type, Number(i.amount_invested), Number(i.actual_return || 0), roi, i.status, formatDate(i.start_date), i.end_date ? formatDate(i.end_date) : ''] })]), 'Investments')
       if (data.dividends.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Member', 'Investment', 'Ownership %', 'Dividend', 'Date', 'Reinvested'], ...data.dividends.map(d => [d.profiles?.name, d.investments?.title, Number(d.ownership_percentage), Number(d.amount), formatDate(d.distribution_date), d.reinvested ? 'Yes' : 'No'])]), 'Dividends')
-      XLSX.writeFile(wb, `Fundex-report-${formatDate(new Date(), 'yyyy-MM-dd')}.xlsx`)
+      XLSX.writeFile(wb, `Nitalink-report-${formatDate(new Date(), 'yyyy-MM-dd')}.xlsx`)
       toast.success('Excel report downloaded!')
     } catch (err) { toast.error('Excel export failed: ' + err.message) }
     setExporting('')

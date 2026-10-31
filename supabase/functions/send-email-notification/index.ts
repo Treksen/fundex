@@ -117,7 +117,7 @@ serve(async (req) => {
     <a href="https://finance.geotreks.co.ke/"
        style="background:#0d9c5e;color:white;padding:10px 14px;
               text-decoration:none;border-radius:6px;display:inline-block;">
-      Sign in to Fundex
+      Sign in to Nitalink
     </a>
   </div>
 
@@ -125,7 +125,7 @@ serve(async (req) => {
 
   <p style="font-size: 12px; color: #777;">
     Admin<br/>
-    Fundex Savings & Investments System
+    Nitalink Savings & Investments System
   </p>
 </body>
 </html>

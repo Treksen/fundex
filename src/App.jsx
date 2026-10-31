@@ -23,7 +23,7 @@ const ProtectedRoute = ({ children }) => {
   if (loading) return (
     <div className="loading-page">
       <div className="spinner" style={{ width: 40, height: 40 }} />
-      <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading Fundex…</p>
+      <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading Nitalink…</p>
     </div>
   )
   return user ? children : <Navigate to="/login" replace />

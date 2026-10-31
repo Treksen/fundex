@@ -62,12 +62,12 @@ export default function LoginPage() {
           {/* <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
             <img
               src="/logo.jpeg"
-              alt="Geotreks / Fundex Savings"
+              alt="Geotreks / Nitalink Savings"
               style={{ width: 150, height: 'auto', objectFit: 'contain' }}
             />
           </div> */}
           <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.4px' }}>
-            Fundex
+            Nitalink
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
             Group Investment Management Platform

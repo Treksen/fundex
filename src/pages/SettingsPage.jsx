@@ -1800,7 +1800,7 @@ export default function SettingsPage() {
                   onChange={(e) =>
                     setInviteForm((p) => ({ ...p, email: e.target.value }))
                   }
-                  placeholder="jane@fundex.app"
+                  placeholder="jane@gmail.com"
                   required
                 />
               </div>
