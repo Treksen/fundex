@@ -59,13 +59,9 @@ export default function LoginPage() {
       <div style={{ width: '100%', maxWidth: 420 }}>
         {/* Logo */}
         <div className="text-center mb-8">
-          {/* <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-            <img
-              src="/logo.jpeg"
-              alt="Geotreks / Nitalink Savings"
-              style={{ width: 150, height: 'auto', objectFit: 'contain' }}
-            />
-          </div> */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+            <img src="/logo-tile.svg" alt="Nitalink" style={{ width: 72, height: 72 }} />
+          </div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.4px' }}>
             Nitalink
           </h1>

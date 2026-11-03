@@ -7,6 +7,7 @@ import { formatDateTime } from '../lib/utils'
 import PageHeader from '../components/PageHeader'
 import Pagination from '../components/Pagination'
 import toast from 'react-hot-toast'
+import { logError } from '../lib/errorLogger'
 
 const PAGE_SIZE = 50
 
@@ -58,11 +59,14 @@ export default function AuditPage() {
       .from('audit_logs').delete().eq('id', id).select('id')
     if (error) {
       toast.error('Delete failed: ' + error.message)
+      logError(error, 'AuditPage.deleteLog', { audit_log_id: id })
     } else if (!data || data.length === 0) {
       // RLS blocked direct delete — use SECURITY DEFINER RPC
       const { error: rpcErr } = await supabase.rpc('admin_delete_audit_log', { p_log_id: id })
-      if (rpcErr) toast.error('Delete failed: ' + rpcErr.message)
-      else { toast.success('Log deleted'); fetchLogs() }
+      if (rpcErr) {
+        toast.error('Delete failed: ' + rpcErr.message)
+        logError(rpcErr, 'AuditPage.deleteLog.rpc', { audit_log_id: id }, 'rpc')
+      } else { toast.success('Log deleted'); fetchLogs() }
     } else {
       toast.success('Log deleted')
       fetchLogs()

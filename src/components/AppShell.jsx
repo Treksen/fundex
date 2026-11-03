@@ -173,7 +173,7 @@ export default function AppShell() {
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-mark">
-            <div className="logo-icon"><img src="/logo.jpeg" alt="Nitalink Savings" /></div>
+            <div className="logo-icon"><img src="/logo-tile.svg" alt="Nitalink" /></div>
             <div className="logo-text">
               <span className="logo-name">Nitalink</span>
               <span className="logo-tagline">Savings & Investment</span>
@@ -239,7 +239,7 @@ export default function AppShell() {
               {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             <div className="topbar-logo">
-              <img src="/logo.jpeg" alt="Nitalink" />
+              <img src="/logo-tile.svg" alt="Nitalink" />
               <span>Nitalink</span>
             </div>
             <h1 className="topbar-title">{getPageTitle()}</h1>
@@ -310,7 +310,7 @@ export default function AppShell() {
       {/* PWA INSTALL BANNER */}
       <div className={`pwa-install-banner ${showInstallBanner ? 'visible' : ''}`}>
         <div style={{ width: 40, height: 40, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-          <img src="/logo.jpeg" alt="Nitalink" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src="/logo-tile.svg" alt="Nitalink" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div className="pwa-install-banner-text">
           <div className="pwa-install-banner-title">Install Nitalink App</div>
