@@ -9,7 +9,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const FROM_EMAIL = Deno.env.get('FROM_EMAIL') ?? 'Nitalink Savings & Investments <info@geotreks.co.ke>'
+const FROM_EMAIL = Deno.env.get('FROM_EMAIL') ?? 'Nitalink <info@geotreks.co.ke>'
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://finance.geotreks.co.ke'
 
 // Notification types that should NOT send emails (too noisy)
@@ -60,7 +60,7 @@ function buildHtml(opts: {
                   <div style="width:42px;height:42px;border-radius:10px;background:#5a8a1e;display:inline-block;line-height:42px;text-align:center;font-size:20px;">💰</div>
                 </td>
                 <td style="vertical-align:middle;">
-                  <div style="font-size:20px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">Nitalink Savings</div>
+                  <div style="font-size:20px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">Nitalink</div>
                   <div style="font-size:11px;color:#85b82a;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Savings & Investment</div>
                 </td>
               </tr>
@@ -112,10 +112,10 @@ function buildHtml(opts: {
         <tr>
           <td style="background:#f5f7f5;border-radius:0 0 14px 14px;padding:20px 32px;border-top:1px solid #e8eae8;">
             <p style="margin:0 0 8px;font-size:12px;color:#8a9a90;text-align:center;line-height:1.6;">
-              You received this because you are a member of <strong>Nitalink Savings & Investment</strong>.
+              You received this because you are a member of <strong>Nitalink</strong>.
             </p>
             <p style="margin:0;font-size:11px;color:#aab8b0;text-align:center;">
-              © ${year} Nitalink Savings &nbsp;·&nbsp;
+              © ${year} Nitalink &nbsp;·&nbsp;
               <a href="${APP_URL}/settings?tab=notifications&unsub=${opts.unsubToken}"
                  style="color:#5a8a1e;text-decoration:none;">Manage email preferences</a>
             </p>
@@ -147,7 +147,7 @@ function buildText(opts: {
         `View in Nitalink: ${actionLink}`,
         '',
         '─────────────────────────────────────',
-        'Nitalink Savings & Investment',
+        'Nitalink',
         'You received this because you are a group member.',
     ].join('\n')
 }
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
         html,
         text,
         tags: [
-            { name: 'app', value: 'nitalink' },
+            { name: 'app', value: 'fundex' },
             { name: 'type', value: type },
         ],
     }

@@ -125,7 +125,7 @@ serve(async (req) => {
 
   <p style="font-size: 12px; color: #777;">
     Admin<br/>
-    Nitalink Savings & Investments System
+    Nitalink · Group savings & investments
   </p>
 </body>
 </html>
