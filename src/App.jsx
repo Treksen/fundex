@@ -17,6 +17,7 @@ import GovernancePage from './pages/GovernancePage'
 import CashFlowPage from './pages/CashFlowPage'
 import './styles/main.css'
 import ErrorLogPage from "./pages/ErrorLogPage";
+import { UpdateProvider } from './hooks/useAppUpdate'
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth()
@@ -37,6 +38,7 @@ const PublicRoute = ({ children }) => {
 
 function App() {
   return (
+    <UpdateProvider>
     <BrowserRouter>
       <AuthProvider>
         <Toaster
@@ -97,6 +99,7 @@ function App() {
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+    </UpdateProvider>
   );
 }
 

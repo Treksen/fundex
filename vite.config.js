@@ -1,14 +1,22 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'node:fs'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const pkg = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+
 export default defineConfig({
+  // Shown in Settings → App & Updates. Bump "version" in package.json for every release.
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   
   plugins: [
     
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt', // members choose when to update (banner + Settings)
       includeAssets: ['favicon.png', 'logo.jpeg', 'icons/*.png', 'images/*.jpg'],
       manifest: {
         name: 'Nitalink',
@@ -64,8 +72,6 @@ export default defineConfig({
         ]
       },
       workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpeg,jpg,webp,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],

@@ -1,15 +1,36 @@
-# Nitalink — email text
+# Nitalink v1.5.0 — in-app updates
 
-Visible brand text changed from "Fundex" to "Nitalink" in both versions of the email function:
-- `index.ts` – "Sign in to Nitalink" button, footer line
-- `index2.ts` – sender default, header, "View in Nitalink" button, footer sentence, copyright line, plain-text version
+## What members get
+- **Banner** at the top of every page when a new version is ready: "A new version of Nitalink is available"
+  with **Update now** and **Later** buttons. "Later" hides it until the next new version is found.
+- **Settings → App & Updates** tab: current version, build date, installed-app vs browser, status
+  ("latest version" / "update ready"), **Check for updates**, **Update now**, and a **Reset app cache** fix for stuck installs.
+  A badge appears on the tab when an update is waiting. `/settings?tab=updates` opens it directly.
+- The app checks for a new version every 30 minutes and whenever the member returns to it.
 
-Not changed: the analytics tag `{ name: 'app', value: 'fundex' }` in `index2.ts`. Changing it would split your
-email stats in Resend into two groups. Rename it only if you don't need continuity.
+## Important behaviour change
+Before: `registerType: 'autoUpdate'` + `skipWaiting` + `clientsClaim`, so the app updated itself silently and could reload mid-form.
+Now: `registerType: 'prompt'`. The new version waits until the member taps **Update now**.
+Members still on the old build get updated automatically once, on the first visit after you deploy this release.
+After that, every update goes through the banner.
 
-## You must also do these two things
-1. **Redeploy the function:** `supabase functions deploy send-email-notification`
-   (only the deployed copy sends emails, editing the file alone changes nothing).
-2. **Check the `FROM_EMAIL` secret** in Supabase. `index.ts` takes the sender name only from that secret, and
-   `index2.ts` uses it before its default. If it still says "Fundex ...", set it, for example:
-   `supabase secrets set FROM_EMAIL="Nitalink <info@geotreks.co.ke>"`
+## Files
+New: `src/hooks/useAppUpdate.jsx`, `src/components/UpdateBanner.jsx`
+Changed: `vite.config.js`, `package.json` (1.4.0 -> 1.5.0), `src/App.jsx`, `src/components/AppShell.jsx`, `src/pages/SettingsPage.jsx`
+If you have edited any changed file since v6, apply `patches/*.diff` instead of copying whole files:
+`patch -p1 < patches/src_pages_SettingsPage.jsx.diff` (run from the project root).
+
+## Releasing a new version (every time)
+1. Bump `"version"` in `package.json` (e.g. 1.5.0 -> 1.5.1). The build date updates by itself.
+2. `npm run build`, deploy.
+3. Open members' apps pick it up within 30 minutes or on their next visit.
+
+## How to test (needs a real deployment; service workers do not run in `npm run dev`)
+1. Deploy 1.5.0 and open the app once.
+2. Bump to 1.5.1 and deploy again.
+3. In the still-open app: Settings -> App & Updates -> **Check for updates**. The banner and tab badge appear.
+4. Tap **Update now**. The app reloads and Settings shows v1.5.1.
+
+## Limits
+- iPhone/iPad installed apps may only notice an update after being closed fully and reopened.
+- Nothing here changes data or sign-in. Reset app cache clears cached app files only.

@@ -1,4 +1,5 @@
 import MemberAvatar from './MemberAvatar'
+import UpdateBanner from './UpdateBanner'
 import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
@@ -280,6 +281,7 @@ export default function AppShell() {
         </header>
 
         <main className="page-content">
+          <UpdateBanner />
           <Outlet />
         </main>
       </div>

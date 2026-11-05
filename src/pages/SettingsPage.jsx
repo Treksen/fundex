@@ -2,19 +2,36 @@ import MemberAvatar from '../components/MemberAvatar'
 import PageHeader from '../components/PageHeader'
 import AdminActions from '../components/AdminActions'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { User, Bell, Lock, Save, Check, ExternalLink, Camera, UserPlus, Shield, Mail, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react'
+import { User, Bell, Lock, Save, Check, ExternalLink, Camera, UserPlus, Shield, Mail, ToggleLeft, ToggleRight, RefreshCw, Smartphone } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { formatDateTime } from '../lib/utils'
 import toast from 'react-hot-toast'
+import { useAppUpdate, isStandaloneApp } from '../hooks/useAppUpdate'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 
 export default function SettingsPage() {
   const { profile, updateProfile, isAdmin } = useAuth();
+  const upd = useAppUpdate();
+  const updLabel = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", fontWeight: 600 };
+  const handleCheckUpdate = async () => {
+    const r = await upd.checkForUpdate();
+    if (!r.ok) {
+      toast.error(r.reason === "unsupported" ? "Update checks are not available in this mode" : "Could not check. Please check your connection.");
+    } else if (r.found) {
+      toast.success('A new version is ready. Tap "Update now".');
+    } else {
+      toast.success("You are on the latest version");
+    }
+  };
+  const handleResetCache = async () => {
+    if (!window.confirm("Reset the app cache? This clears the downloaded app files and reloads Nitalink. You will stay signed in.")) return;
+    await upd.resetAppCache();
+  };
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const defaultTab =
-    searchParams.get("tab") === "notifications" ? "notifications" : "profile";
+  const requestedTab = searchParams.get("tab");
+  const defaultTab = ["notifications", "updates"].includes(requestedTab) ? requestedTab : "profile";
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [notifications, setNotifications] = useState([]);
   const [allNotifications, setAllNotifications] = useState([]);
@@ -308,6 +325,7 @@ export default function SettingsPage() {
     { id: "profile", label: "Profile", icon: User },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "security", label: "Security", icon: Lock },
+    { id: "updates", label: "App & Updates", icon: Smartphone },
     ...(isAdmin ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
   ];
 
@@ -724,6 +742,9 @@ export default function SettingsPage() {
             {tab.label}
             {tab.id === "notifications" && unread > 0 && (
               <span className="nav-badge">{unread}</span>
+            )}
+            {tab.id === "updates" && upd.needRefresh && (
+              <span className="nav-badge" title="Update available">1</span>
             )}
           </button>
         ))}
@@ -1545,6 +1566,90 @@ export default function SettingsPage() {
         </div>
       )}
       {/* Admin tab */}
+      {activeTab === "updates" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="card">
+            <h3 style={{ fontWeight: 700, marginBottom: 16 }}>App version</h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 28, marginBottom: 18 }}>
+              <div>
+                <div style={updLabel}>Version</div>
+                <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "var(--font-mono)" }}>v{upd.version}</div>
+              </div>
+              <div>
+                <div style={updLabel}>Built</div>
+                <div style={{ fontSize: 14, marginTop: 4 }}>{upd.buildTime ? formatDateTime(upd.buildTime) : "—"}</div>
+              </div>
+              <div>
+                <div style={updLabel}>Running as</div>
+                <div style={{ fontSize: 14, marginTop: 4 }}>{isStandaloneApp() ? "Installed app" : "Web browser"}</div>
+              </div>
+            </div>
+
+            {upd.needRefresh ? (
+              <div style={{ background: "rgba(90,138,30,0.10)", border: "1px solid rgba(90,138,30,0.35)", borderRadius: 12, padding: 16, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+                <RefreshCw size={18} style={{ color: "var(--olive)", flexShrink: 0 }} />
+                <div style={{ flex: "1 1 220px" }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>A new version is ready</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                    Updating reloads the app. Finish anything you are typing first.
+                  </div>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={upd.applyUpdate} disabled={upd.applying}>
+                  {upd.applying ? "Updating…" : "Update now"}
+                </button>
+              </div>
+            ) : !upd.supported ? (
+              <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>
+                Automatic updates are not active here (this is a development build, or your browser does not support
+                installable apps). Reload the page to get the latest version.
+                <div style={{ marginTop: 10 }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()}>Reload page</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--accent-emerald)", fontWeight: 600 }}>
+                <Check size={18} /> You are on the latest version
+                {upd.lastChecked && (
+                  <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: 12 }}>
+                    · last checked {upd.lastChecked.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div style={{ marginTop: 18 }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleCheckUpdate}
+                disabled={upd.checking || upd.applying}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                {upd.checking ? <div className="spinner" style={{ width: 12, height: 12 }} /> : <RefreshCw size={13} />}
+                {upd.checking ? "Checking…" : "Check for updates"}
+              </button>
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 style={{ fontWeight: 700, marginBottom: 12 }}>How updates work</h3>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.7, color: "var(--text-secondary)" }}>
+              <li>Nitalink looks for a new version automatically every 30 minutes and whenever you come back to the app.</li>
+              <li>When one is ready, a banner appears at the top of the page. Tap <strong>Update now</strong> when it suits you.</li>
+              <li>Updating reloads the app, so save any form you are filling in first. You stay signed in.</li>
+              <li>On an iPhone or iPad and the update does not show? Close the app fully from the app switcher and open it again.</li>
+            </ul>
+          </div>
+
+          <div className="card">
+            <h3 style={{ fontWeight: 700, marginBottom: 8 }}>Having trouble?</h3>
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--text-secondary)" }}>
+              If the app looks out of date or stuck after an update, reset its cached files. You will stay signed in.
+            </p>
+            <button className="btn btn-secondary btn-sm" onClick={handleResetCache}>Reset app cache</button>
+          </div>
+        </div>
+      )}
+
       {activeTab === "admin" && isAdmin && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* =============================== */}
@@ -1800,7 +1905,7 @@ export default function SettingsPage() {
                   onChange={(e) =>
                     setInviteForm((p) => ({ ...p, email: e.target.value }))
                   }
-                  placeholder="jane@gmail.com"
+                  placeholder="jane@fundex.app"
                   required
                 />
               </div>
