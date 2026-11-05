@@ -3,7 +3,8 @@ import { useAppUpdate } from '../hooks/useAppUpdate'
 
 // Shown at the top of every page while a newer version is waiting to be installed.
 export default function UpdateBanner() {
-  const { needRefresh, dismissed, dismiss, applyUpdate, applying } = useAppUpdate()
+  const { needRefresh, reason, dismissed, dismiss, applyUpdate, applying } = useAppUpdate()
+  const updatedAlready = reason === 'activated' // a new version took over in another tab/window
   if (!needRefresh || dismissed) return null
 
   return (
@@ -25,14 +26,16 @@ export default function UpdateBanner() {
       <RefreshCw size={18} style={{ color: 'var(--olive)', flexShrink: 0 }} />
       <div style={{ flex: '1 1 220px', minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-          A new version of Nitalink is available
+          {updatedAlready ? 'Nitalink was just updated' : 'A new version of Nitalink is available'}
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-          Updating reloads the app, so finish anything you are typing first.
+          {updatedAlready
+            ? 'Reload to start using the new version. Nothing has been reloaded for you.'
+            : 'Updating reloads the app, so finish anything you are typing first.'}
         </div>
       </div>
       <button className="btn btn-primary btn-sm" onClick={applyUpdate} disabled={applying}>
-        {applying ? 'Updating…' : 'Update now'}
+        {applying ? 'Updating…' : updatedAlready ? 'Reload now' : 'Update now'}
       </button>
       <button className="btn btn-secondary btn-sm" onClick={dismiss} disabled={applying}>
         Later

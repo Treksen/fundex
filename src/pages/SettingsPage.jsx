@@ -1589,18 +1589,19 @@ export default function SettingsPage() {
               <div style={{ background: "rgba(90,138,30,0.10)", border: "1px solid rgba(90,138,30,0.35)", borderRadius: 12, padding: 16, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
                 <RefreshCw size={18} style={{ color: "var(--olive)", flexShrink: 0 }} />
                 <div style={{ flex: "1 1 220px" }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>A new version is ready</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{upd.reason === "activated" ? "Nitalink was just updated" : "A new version is ready"}</div>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-                    Updating reloads the app. Finish anything you are typing first.
+                    {upd.reason === "activated" ? "Reload to start using the new version. Nothing has been reloaded for you." : "Updating reloads the app. Finish anything you are typing first."}
                   </div>
                 </div>
                 <button className="btn btn-primary btn-sm" onClick={upd.applyUpdate} disabled={upd.applying}>
-                  {upd.applying ? "Updating…" : "Update now"}
+                  {upd.applying ? "Updating…" : upd.reason === "activated" ? "Reload now" : "Update now"}
                 </button>
               </div>
             ) : !upd.supported ? (
               <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>
-                Automatic updates are not active here. Reload the page to get the latest version.
+                Automatic updates are not active here (this is a development build, or your browser does not support
+                installable apps). Reload the page to get the latest version.
                 <div style={{ marginTop: 10 }}>
                   <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()}>Reload page</button>
                 </div>
@@ -1627,9 +1628,17 @@ export default function SettingsPage() {
                 {upd.checking ? "Checking…" : "Check for updates"}
               </button>
             </div>
+            <details style={{ marginTop: 18 }}>
+              <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>Technical details</summary>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, lineHeight: 1.7, marginTop: 8, color: "var(--text-secondary)" }}>
+                <div>Offline support: {upd.sw.controlled ? "active on this page" : "not active on this page yet"}</div>
+                <div>Update waiting: {upd.sw.waiting ? "yes" : "no"}</div>
+                {upd.events.length === 0 ? <div>No update activity recorded yet.</div> : upd.events.map((e, i) => <div key={i}>{e}</div>)}
+              </div>
+            </details>
           </div>
 
-          {/* <div className="card">
+          <div className="card">
             <h3 style={{ fontWeight: 700, marginBottom: 12 }}>How updates work</h3>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.7, color: "var(--text-secondary)" }}>
               <li>Nitalink looks for a new version automatically every 30 minutes and whenever you come back to the app.</li>
@@ -1637,7 +1646,7 @@ export default function SettingsPage() {
               <li>Updating reloads the app, so save any form you are filling in first. You stay signed in.</li>
               <li>On an iPhone or iPad and the update does not show? Close the app fully from the app switcher and open it again.</li>
             </ul>
-          </div> */}
+          </div>
 
           <div className="card">
             <h3 style={{ fontWeight: 700, marginBottom: 8 }}>Having trouble?</h3>
