@@ -1600,8 +1600,7 @@ export default function SettingsPage() {
               </div>
             ) : !upd.supported ? (
               <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>
-                Automatic updates are not active here (this is a development build, or your browser does not support
-                installable apps). Reload the page to get the latest version.
+                Automatic updates are not active here. Reload the page to get the latest version.
                 <div style={{ marginTop: 10 }}>
                   <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()}>Reload page</button>
                 </div>
@@ -1630,7 +1629,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="card">
+          {/* <div className="card">
             <h3 style={{ fontWeight: 700, marginBottom: 12 }}>How updates work</h3>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.7, color: "var(--text-secondary)" }}>
               <li>Nitalink looks for a new version automatically every 30 minutes and whenever you come back to the app.</li>
@@ -1638,7 +1637,7 @@ export default function SettingsPage() {
               <li>Updating reloads the app, so save any form you are filling in first. You stay signed in.</li>
               <li>On an iPhone or iPad and the update does not show? Close the app fully from the app switcher and open it again.</li>
             </ul>
-          </div>
+          </div> */}
 
           <div className="card">
             <h3 style={{ fontWeight: 700, marginBottom: 8 }}>Having trouble?</h3>
