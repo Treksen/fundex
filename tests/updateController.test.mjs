@@ -75,4 +75,20 @@ await test('event log is kept across a reload for troubleshooting', async () => 
   const again = createUpdateController(w.env); assert.ok(again.getSnapshot().events.some(e => e.includes('reload held back'))) })
 
 await test('reset cache -> reloads', async () => { const w = world(); await tick(); await w.c.resetAppCache(); assert.equal(w.reloads(), 1) })
+
+await test('BRIDGE: brand-new visitor gets claimed by the worker -> NO banner, NO reload', async () => {
+  const w = world({ controlled: false }); await tick()
+  w.sw.controller = {}; w.sw.dispatchEvent(new Event('controllerchange'))
+  assert.equal(w.s().needRefresh, false); assert.equal(w.reloads(), 0) })
+
+await test('BRIDGE: after that first claim, a later takeover DOES show the banner (still no reload)', async () => {
+  const w = world({ controlled: false }); await tick()
+  w.sw.controller = {}; w.sw.dispatchEvent(new Event('controllerchange'))
+  w.sw.dispatchEvent(new Event('controllerchange'))
+  assert.equal(w.s().needRefresh, true); assert.equal(w.s().reason, 'activated'); assert.equal(w.reloads(), 0) })
+
+await test('BRIDGE: existing member, new version activates instantly -> banner, no reload', async () => {
+  const w = world({ controlled: true }); await tick()
+  w.sw.dispatchEvent(new Event('controllerchange'))
+  assert.equal(w.s().needRefresh, true); assert.equal(w.reloads(), 0) })
 console.log(`\nAll ${n} scenarios passed`)

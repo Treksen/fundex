@@ -1600,8 +1600,7 @@ export default function SettingsPage() {
               </div>
             ) : !upd.supported ? (
               <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>
-                Automatic updates are not active here (this is a development build, or your browser does not support
-                installable apps). Reload the page to get the latest version.
+                Automatic updates are not active here. Reload the page to get the latest version.
                 <div style={{ marginTop: 10 }}>
                   <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()}>Reload page</button>
                 </div>
@@ -1628,6 +1627,7 @@ export default function SettingsPage() {
                 {upd.checking ? "Checking…" : "Check for updates"}
               </button>
             </div>
+            {isAdmin && (
             <details style={{ marginTop: 18 }}>
               <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>Technical details</summary>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, lineHeight: 1.7, marginTop: 8, color: "var(--text-secondary)" }}>
@@ -1636,8 +1636,10 @@ export default function SettingsPage() {
                 {upd.events.length === 0 ? <div>No update activity recorded yet.</div> : upd.events.map((e, i) => <div key={i}>{e}</div>)}
               </div>
             </details>
+            )}
           </div>
 
+          {isAdmin && (
           <div className="card">
             <h3 style={{ fontWeight: 700, marginBottom: 12 }}>How updates work</h3>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.7, color: "var(--text-secondary)" }}>
@@ -1647,6 +1649,7 @@ export default function SettingsPage() {
               <li>On an iPhone or iPad and the update does not show? Close the app fully from the app switcher and open it again.</li>
             </ul>
           </div>
+          )}
 
           <div className="card">
             <h3 style={{ fontWeight: 700, marginBottom: 8 }}>Having trouble?</h3>

@@ -29,12 +29,12 @@ const NAV_ITEMS = [
   // SELECT for any authenticated user.
   { path: '/ledger', icon: BookOpen, label: 'Ledger' },
   { path: '/reconciliation', icon: GitMerge, label: 'Reconciliation' },
+  { path: '/settings', icon: Settings, label: 'Settings' }, // Profile, Notifications, Security, App & Updates
 ]
 
 const ADMIN_ITEMS = [
   { path: '/audit',     icon: Shield,        label: 'Audit Log'  },
   { path: '/errorlog',  icon: AlertTriangle, label: 'Error Log'  },
-  { path: '/settings',  icon: Settings,      label: 'Settings'   },
 ]
 
 // Bottom nav shows most-used pages only

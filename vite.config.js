@@ -5,6 +5,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const pkg = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 
+// ONE-TIME BRIDGE. Members still on a build older than 1.5 only switch versions when the new one
+// activates immediately (that is how those old builds work); otherwise they stay stuck until they
+// fully close the app and never see the update banner. Keep this TRUE for this release and the next,
+// then set it to FALSE so everyone gets the "Update now" banner instead of a silent switch.
+const BRIDGE_RELEASE = false
+
 export default defineConfig({
   // Shown in Settings → App & Updates. Bump "version" in package.json for every release.
   define: {
@@ -72,6 +78,8 @@ export default defineConfig({
         ]
       },
       workbox: {
+        skipWaiting: BRIDGE_RELEASE,
+        clientsClaim: BRIDGE_RELEASE,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpeg,jpg,webp,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],

@@ -1,0 +1,34 @@
+--- a/src/lib/updateController.js
++++ b/src/lib/updateController.js
+@@ -14,6 +14,7 @@
+   const listeners = new Set()
+   let registration = null
+   let applying = false
++  let hadController = false // was this page already controlled by a service worker?
+ 
+   const loadEvents = () => {
+     try { return JSON.parse(storage?.getItem(EVENTS_KEY) || '[]') } catch { return [] }
+@@ -55,9 +56,15 @@
+   }
+ 
+   const onControllerChange = () => {
++    const firstClaim = !hadController
++    hadController = true
+     if (applying) {
+       log('switching to the new version (you tapped Update)')
+       location.reload()
++    } else if (firstClaim) {
++      // Brand-new install: the worker simply took control of this page. Nothing to update.
++      log('offline support switched on for this page')
++      set({ sw: swInfo() })
+     } else {
+       // Another tab/window or a redeploy activated a new version. Do NOT reload on our own.
+       log('a new version took over without being asked; reload held back')
+@@ -82,6 +89,7 @@
+ 
+     start() {
+       if (!serviceWorker) return () => {}
++      hadController = !!serviceWorker.controller
+       serviceWorker.addEventListener('controllerchange', onControllerChange)
+       documentRef?.addEventListener('visibilitychange', onVisible)
+       const timer = interval(tick, CHECK_EVERY_MS)

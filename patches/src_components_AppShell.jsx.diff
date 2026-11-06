@@ -1,16 +1,16 @@
 --- a/src/components/AppShell.jsx
 +++ b/src/components/AppShell.jsx
-@@ -1,4 +1,5 @@
- import MemberAvatar from './MemberAvatar'
-+import UpdateBanner from './UpdateBanner'
- import { useState, useEffect } from 'react'
- import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
- import {
-@@ -280,6 +281,7 @@
-         </header>
+@@ -29,12 +29,12 @@
+   // SELECT for any authenticated user.
+   { path: '/ledger', icon: BookOpen, label: 'Ledger' },
+   { path: '/reconciliation', icon: GitMerge, label: 'Reconciliation' },
++  { path: '/settings', icon: Settings, label: 'Settings' }, // Profile, Notifications, Security, App & Updates
+ ]
  
-         <main className="page-content">
-+          <UpdateBanner />
-           <Outlet />
-         </main>
-       </div>
+ const ADMIN_ITEMS = [
+   { path: '/audit',     icon: Shield,        label: 'Audit Log'  },
+   { path: '/errorlog',  icon: AlertTriangle, label: 'Error Log'  },
+-  { path: '/settings',  icon: Settings,      label: 'Settings'   },
+ ]
+ 
+ // Bottom nav shows most-used pages only
