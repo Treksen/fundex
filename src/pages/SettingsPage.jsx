@@ -1600,7 +1600,8 @@ export default function SettingsPage() {
               </div>
             ) : !upd.supported ? (
               <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>
-                Automatic updates are not active here. Reload the page to get the latest version.
+                Automatic updates are not active here (this is a development build, or your browser does not support
+                installable apps). Reload the page to get the latest version.
                 <div style={{ marginTop: 10 }}>
                   <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()}>Reload page</button>
                 </div>
