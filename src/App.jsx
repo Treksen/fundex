@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import AppShell from './components/AppShell'
 import LoginPage from './pages/LoginPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
 import MembersPage from './pages/MembersPage'
@@ -36,6 +37,12 @@ const PublicRoute = ({ children }) => {
   return !user ? children : <Navigate to="/" replace />
 }
 
+// A password-reset link signs the member in temporarily. Force the "set a new password" screen wherever they land.
+const RecoveryGate = ({ children }) => {
+  const { recovery } = useAuth()
+  return recovery ? <ResetPasswordPage /> : children
+}
+
 function App() {
   return (
     <UpdateProvider>
@@ -65,7 +72,9 @@ function App() {
             },
           }}
         />
+        <RecoveryGate>
         <Routes>
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route
             path="/login"
             element={
@@ -94,9 +103,13 @@ function App() {
             <Route path="cashflow" element={<CashFlowPage />} />
             <Route path="audit" element={<AuditPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="security" element={<SettingsPage section="security" />} />
+            <Route path="updates" element={<SettingsPage section="updates" />} />
+            <Route path="admin" element={<SettingsPage section="admin" />} />
             <Route path="errorlog" element={<ErrorLogPage />} />
           </Route>
         </Routes>
+        </RecoveryGate>
       </AuthProvider>
     </BrowserRouter>
     </UpdateProvider>

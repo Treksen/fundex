@@ -1,26 +1,12 @@
 --- a/src/App.jsx
 +++ b/src/App.jsx
-@@ -17,6 +17,7 @@
- import CashFlowPage from './pages/CashFlowPage'
- import './styles/main.css'
- import ErrorLogPage from "./pages/ErrorLogPage";
-+import { UpdateProvider } from './hooks/useAppUpdate'
- 
- const ProtectedRoute = ({ children }) => {
-   const { user, loading } = useAuth()
-@@ -37,6 +38,7 @@
- 
- function App() {
-   return (
-+    <UpdateProvider>
-     <BrowserRouter>
-       <AuthProvider>
-         <Toaster
-@@ -97,6 +99,7 @@
+@@ -103,6 +103,9 @@
+             <Route path="cashflow" element={<CashFlowPage />} />
+             <Route path="audit" element={<AuditPage />} />
+             <Route path="settings" element={<SettingsPage />} />
++            <Route path="security" element={<SettingsPage section="security" />} />
++            <Route path="updates" element={<SettingsPage section="updates" />} />
++            <Route path="admin" element={<SettingsPage section="admin" />} />
+             <Route path="errorlog" element={<ErrorLogPage />} />
+           </Route>
          </Routes>
-       </AuthProvider>
-     </BrowserRouter>
-+    </UpdateProvider>
-   );
- }
- 

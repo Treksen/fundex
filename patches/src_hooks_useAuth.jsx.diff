@@ -1,0 +1,27 @@
+--- a/src/hooks/useAuth.jsx
++++ b/src/hooks/useAuth.jsx
+@@ -13,6 +13,7 @@
+   const [user, setUser] = useState(null);
+   const [profile, setProfile] = useState(null);
+   const [loading, setLoading] = useState(true);
++  const [recovery, setRecovery] = useState(false); // true while a password-reset link is being used
+ 
+   const fetchProfile = async (userId) => {
+     try {
+@@ -59,6 +60,7 @@
+     const {
+       data: { subscription },
+     } = supabase.auth.onAuthStateChange(async (event, session) => {
++      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+       if (session?.user) {
+         setUser(session.user);
+         fetchProfile(session.user.id);
+@@ -141,6 +143,8 @@
+         profile,
+         loading,
+         isAdmin,
++        recovery,
++        clearRecovery: () => setRecovery(false),
+         signIn,
+         signOut,
+         updateProfile,

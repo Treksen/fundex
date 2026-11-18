@@ -1,12 +1,13 @@
 import MemberAvatar from './MemberAvatar'
 import UpdateBanner from './UpdateBanner'
+import { useAppUpdate } from '../hooks/useAppUpdate'
 import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, ArrowLeftRight, Users, TrendingUp,
   Target, FileBarChart, Shield, Settings, LogOut,
   Bell, Menu, X, ChevronRight, Download, Sun, Moon,
-  GitMerge, Lightbulb, BookOpen, Vote, BarChart2, AlertTriangle
+  GitMerge, Lightbulb, BookOpen, Vote, BarChart2, AlertTriangle, Lock, Smartphone, ShieldCheck
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
@@ -33,6 +34,9 @@ const NAV_ITEMS = [
 ]
 
 const ADMIN_ITEMS = [
+  { path: '/security',  icon: Lock,          label: 'Security'      },
+  { path: '/updates',   icon: Smartphone,    label: 'App & Updates' },
+  { path: '/admin',     icon: ShieldCheck,   label: 'Admin Panel'   },
   { path: '/audit',     icon: Shield,        label: 'Audit Log'  },
   { path: '/errorlog',  icon: AlertTriangle, label: 'Error Log'  },
 ]
@@ -49,6 +53,7 @@ const BOTTOM_NAV = [
 export default function AppShell() {
   const { profile, signOut, isAdmin } = useAuth()
   const { isDark, toggle: toggleTheme } = useTheme()
+  const { needRefresh } = useAppUpdate()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -201,6 +206,9 @@ export default function AppShell() {
                     <span className="nav-badge" style={{ marginLeft: 'auto', background: 'var(--accent-red)' }}>
                       {openErrorCount}
                     </span>
+                  )}
+                  {item.path === '/updates' && needRefresh && (
+                    <span className="nav-badge" style={{ marginLeft: 'auto' }} title="Update available">1</span>
                   )}
                 </NavLink>
               ))}

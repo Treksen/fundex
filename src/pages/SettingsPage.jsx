@@ -8,9 +8,10 @@ import { useAuth } from '../hooks/useAuth'
 import { formatDateTime } from '../lib/utils'
 import toast from 'react-hot-toast'
 import { useAppUpdate, isStandaloneApp } from '../hooks/useAppUpdate'
+import { settingsRedirect, SECTION_TITLES } from '../lib/settingsSections'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 
-export default function SettingsPage() {
+export default function SettingsPage({ section } = {}) {
   const { profile, updateProfile, isAdmin } = useAuth();
   const upd = useAppUpdate();
   const updLabel = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", fontWeight: 600 };
@@ -32,7 +33,13 @@ export default function SettingsPage() {
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const defaultTab = ["notifications", "updates"].includes(requestedTab) ? requestedTab : "profile";
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [tabState, setActiveTab] = useState(defaultTab);
+  const activeTab = section || tabState; // a section page (Security / App & Updates / Admin Panel) always shows its own section
+  const sectionInfo = section ? SECTION_TITLES[section] : null;
+  useEffect(() => {
+    const to = settingsRedirect({ section, requestedTab, isAdmin, profileLoaded: !!profile });
+    if (to) navigate(to, { replace: true });
+  }, [section, requestedTab, isAdmin, profile, navigate]);
   const [notifications, setNotifications] = useState([]);
   const [allNotifications, setAllNotifications] = useState([]);
   const [notifView, setNotifView] = useState("mine"); // 'mine' | 'all'
@@ -373,46 +380,23 @@ export default function SettingsPage() {
     }
     setInviting(true);
     try {
-      // Create auth user via Supabase admin signUp (uses anon key — works if email confirm is off)
-      const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email: inviteForm.email.trim().toLowerCase(),
-        password: inviteForm.password,
-        options: {
-          data: { name: inviteForm.name.trim(), role: inviteForm.role },
+      // The server creates the login and sets the role. Doing this in the browser let anyone on the internet
+      // sign up as an admin, so it now goes through the admin-create-member function (admins only).
+      const { data: created, error: fnErr } = await supabase.functions.invoke("admin-create-member", {
+        body: {
+          email: inviteForm.email.trim().toLowerCase(),
+          name: inviteForm.name.trim(),
+          role: inviteForm.role,
+          password: inviteForm.password,
         },
       });
-      if (authErr) throw authErr;
-
-      // Profile is created by trigger; update name/role explicitly
-      if (authData?.user?.id) {
-        await supabase.from("profiles").upsert(
-          {
-            id: authData.user.id,
-            name: inviteForm.name.trim(),
-            email: inviteForm.email.trim().toLowerCase(),
-            role: inviteForm.role,
-          },
-          { onConflict: "id" },
-        );
+      if (fnErr || created?.error) {
+        let message = created?.error;
+        if (!message && fnErr?.context?.json) {
+          try { message = (await fnErr.context.json())?.error; } catch { /* use the generic message */ }
+        }
+        throw new Error(message || "Could not create the member. Please try again.");
       }
-
-      // Record invitation log
-      await supabase.from("member_invitations").insert({
-        email: inviteForm.email.trim().toLowerCase(),
-        name: inviteForm.name.trim(),
-        role: inviteForm.role,
-        invited_by: profile.id,
-        accepted_at: new Date().toISOString(),
-      });
-
-      // Audit log
-      await supabase.from("audit_logs").insert({
-        user_id: profile.id,
-        action: `Admin registered new user: ${inviteForm.name} (${inviteForm.role})`,
-        table_name: "profiles",
-        record_id: authData?.user?.id,
-        change_type: "create",
-      });
 
       toast.success(
         `✅ ${inviteForm.name} has been registered! They can now log in with the provided credentials.`,
@@ -612,10 +596,12 @@ export default function SettingsPage() {
   return (
     <div style={{ maxWidth: "100%" }}>
       <PageHeader
-        title="Settings"
-        subtitle="Manage your account and preferences"
+        title={sectionInfo ? sectionInfo[0] : "Settings"}
+        subtitle={sectionInfo ? sectionInfo[1] : "Manage your account and preferences"}
       />
 
+      {!section && (
+      <>
       {/* Profile header with photo upload */}
       <div
         className="card mb-6"
@@ -710,7 +696,7 @@ export default function SettingsPage() {
 
       {/* Tabs */}
       <div className="page-tab-bar" style={{ marginBottom: 20 }}>
-        {TABS.map((tab) => (
+        {(isAdmin ? TABS.filter((t) => !['security', 'updates', 'admin'].includes(t.id)) : TABS).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -749,6 +735,9 @@ export default function SettingsPage() {
           </button>
         ))}
       </div>
+
+      </>
+      )}
 
       {/* Profile tab */}
       {activeTab === "profile" && (

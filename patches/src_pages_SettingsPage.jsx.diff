@@ -1,29 +1,63 @@
 --- a/src/pages/SettingsPage.jsx
 +++ b/src/pages/SettingsPage.jsx
-@@ -1628,6 +1628,7 @@
-                 {upd.checking ? "Checking…" : "Check for updates"}
-               </button>
-             </div>
-+            {isAdmin && (
-             <details style={{ marginTop: 18 }}>
-               <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>Technical details</summary>
-               <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, lineHeight: 1.7, marginTop: 8, color: "var(--text-secondary)" }}>
-@@ -1636,8 +1637,10 @@
-                 {upd.events.length === 0 ? <div>No update activity recorded yet.</div> : upd.events.map((e, i) => <div key={i}>{e}</div>)}
-               </div>
-             </details>
-+            )}
-           </div>
+@@ -8,9 +8,10 @@
+ import { formatDateTime } from '../lib/utils'
+ import toast from 'react-hot-toast'
+ import { useAppUpdate, isStandaloneApp } from '../hooks/useAppUpdate'
++import { settingsRedirect, SECTION_TITLES } from '../lib/settingsSections'
+ import { useSearchParams, useNavigate } from 'react-router-dom'
  
-+          {isAdmin && (
-           <div className="card">
-             <h3 style={{ fontWeight: 700, marginBottom: 12 }}>How updates work</h3>
-             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.7, color: "var(--text-secondary)" }}>
-@@ -1647,6 +1650,7 @@
-               <li>On an iPhone or iPad and the update does not show? Close the app fully from the app switcher and open it again.</li>
-             </ul>
-           </div>
-+          )}
+-export default function SettingsPage() {
++export default function SettingsPage({ section } = {}) {
+   const { profile, updateProfile, isAdmin } = useAuth();
+   const upd = useAppUpdate();
+   const updLabel = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", fontWeight: 600 };
+@@ -32,7 +33,13 @@
+   const [searchParams] = useSearchParams();
+   const requestedTab = searchParams.get("tab");
+   const defaultTab = ["notifications", "updates"].includes(requestedTab) ? requestedTab : "profile";
+-  const [activeTab, setActiveTab] = useState(defaultTab);
++  const [tabState, setActiveTab] = useState(defaultTab);
++  const activeTab = section || tabState; // a section page (Security / App & Updates / Admin Panel) always shows its own section
++  const sectionInfo = section ? SECTION_TITLES[section] : null;
++  useEffect(() => {
++    const to = settingsRedirect({ section, requestedTab, isAdmin, profileLoaded: !!profile });
++    if (to) navigate(to, { replace: true });
++  }, [section, requestedTab, isAdmin, profile, navigate]);
+   const [notifications, setNotifications] = useState([]);
+   const [allNotifications, setAllNotifications] = useState([]);
+   const [notifView, setNotifView] = useState("mine"); // 'mine' | 'all'
+@@ -589,10 +596,12 @@
+   return (
+     <div style={{ maxWidth: "100%" }}>
+       <PageHeader
+-        title="Settings"
+-        subtitle="Manage your account and preferences"
++        title={sectionInfo ? sectionInfo[0] : "Settings"}
++        subtitle={sectionInfo ? sectionInfo[1] : "Manage your account and preferences"}
+       />
  
-           <div className="card">
-             <h3 style={{ fontWeight: 700, marginBottom: 8 }}>Having trouble?</h3>
++      {!section && (
++      <>
+       {/* Profile header with photo upload */}
+       <div
+         className="card mb-6"
+@@ -687,7 +696,7 @@
+ 
+       {/* Tabs */}
+       <div className="page-tab-bar" style={{ marginBottom: 20 }}>
+-        {TABS.map((tab) => (
++        {(isAdmin ? TABS.filter((t) => !['security', 'updates', 'admin'].includes(t.id)) : TABS).map((tab) => (
+           <button
+             key={tab.id}
+             onClick={() => setActiveTab(tab.id)}
+@@ -727,6 +736,9 @@
+         ))}
+       </div>
+ 
++      </>
++      )}
++
+       {/* Profile tab */}
+       {activeTab === "profile" && (
+         <div className="card">

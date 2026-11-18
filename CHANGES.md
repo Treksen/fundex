@@ -1,47 +1,35 @@
-# Monthly reports (PDF + Excel) — rebuilt
+# Admin navigation: Security, App & Updates and Admin moved out of Settings
 
-App version NOT changed (package.json and vite.config.js are not in this bundle).
+App version NOT changed (no package.json in this bundle).
+
+## What admins see now
+Sidebar, Admin section, top to bottom:  Security  ·  App & Updates  ·  Admin Panel  ·  Audit Log  ·  Error Log
+- Security: your own password and sign-in settings (the old Settings > Security tab).
+- App & Updates: version, check for updates, update now (the old Settings > App & Updates tab). It shows a "1" badge when an update is waiting.
+- Admin Panel: the old Settings > Admin tab (member management and group settings). Named "Admin Panel" because a menu item
+  called just "Admin" inside the Admin group read oddly. Easy to rename: label in `ADMIN_ITEMS`, title in `src/lib/settingsSections.js`.
+- Settings now shows an admin only Profile and Notifications.
+- Old links still work: an admin opening /settings?tab=security (or updates, admin) is sent to the new page.
+
+## What members see (unchanged)
+Settings with Profile, Notifications, Security and App & Updates. Members do not get the new menu items, and the Admin Panel
+page sends a member back to Settings (its content was already admin-only in code).
+Reason for not moving Security and App & Updates for members as well: they are the only place a member can change their
+password or update the app, and members have no Admin section.
 
 ## Files
-New:      src/lib/reportPeriod.js, reportModel.js, reportPdf.js, reportExcel.js, reportLoader.js, fetchAll.js, public/logo-mark.png
-Replaced: src/pages/ReportsPage.jsx   (whole file. If you edited it since v6, keep your copy aside first)
-Tests:    tests/reports/  ->  run with:  node tests/reports/run.mjs
+New: src/lib/settingsSections.js (the redirect rules, so they can be tested)
+Changed: src/pages/SettingsPage.jsx, src/components/AppShell.jsx, src/App.jsx   (+ tests/nav/nav.test.mjs)
 
-## The four fixes
-1. Withdrawals now count COMPLETED withdrawals only (before, pending ones were included, so totals did not reconcile).
-2. Every figure is for the chosen month, or "as at" the month end. Before, the date filter only changed the transaction list.
-3. Deposits awaiting verification are shown (count, amount, oldest) instead of invisible.
-4. Ownership % now uses the same formula as the rest of the app (positive equity / total positive equity).
-   The old Reports page used net contribution / net pool, which could disagree with the Members page.
-
-## What you asked for (items)
-1  Header with logo, period, generated time          3  Balance roll-forward (opening + deposits - withdrawals +/- adjustments = closing, with a self-check)
-5  Monthly activity table + chart (12 months)         7  Reserve fund: balance, target, % of target, movement in the month
-8  Group health indicators                            9  Liquidity: invested vs not invested
-10 Richer member table (ownership, equity, deposits, withdrawals, count, average, last deposit, loan, pending)
-12 Member statements (one member, or all members in one PDF) with running balance, bank refs, ownership, dividends received
-16 Transaction log with Deposit Ref, Bank Ref, verified by, status incl. awaiting verification / rejected
-17 Verification summary (verified / awaiting / rejected, median hours to verify, oldest pending, deposits missing a bank ref)
-20 Bank reconciliation (matched / unmatched, amount differences, deposits with no bank entry)
-23 Portfolio summary   24 Investment performance table   27 Savings goals progress and pace-based ETA
-29 Ledger summary and trial balance (Dr/Cr, balanced check)
-30 Charts inside the PDF (drawn as vector shapes)   31 Better Excel (totals as real formulas, filters, column widths, flat data sheets)
-33 Monthly email: NOT in this bundle (see below)
-
-Also restored: the old Excel "Dividends" sheet (same columns), plus dividends in the PDF and on statements.
-
-## Behaviour you should know
-- Page: pick a month (defaults to the last completed month) or "All time". The custom from/to date range is gone, replaced by months.
-- Everyone who can open Reports sees all of this, as today. Nothing is hidden by role.
-- Reserve fund and group-health figures are "as at the day you generate the report", not the month end (the database only keeps current values). The PDF says so.
-- "Currently invested / not invested" is an ESTIMATE: member equity pool minus capital in active/maturing investments. It is not a bank balance. The PDF says so.
-- If an optional data source fails to load, the exports say "Not loaded: ..." and the page warns. If transactions or members fail, exports are switched off.
-- All data is read in pages of 1,000 rows, so large groups do not get silently truncated totals.
-- Excel limits (free SheetJS): no cell colours and no frozen header rows. Filters, widths, number formats and formulas work.
+## IMPORTANT: which files to copy
+My copies of SettingsPage.jsx and App.jsx ALSO contain the changes from the nitalink_security bundle (secure add-member,
+Forgot password). If you have NOT deployed that bundle and its `admin-create-member` function yet, do NOT copy those two
+whole files; apply `patches/*.diff` instead. The diffs apply cleanly both with and without the security bundle.
+  patch -p1 < patches/src_pages_SettingsPage.jsx.diff       (or: git apply patches/src_pages_SettingsPage.jsx.diff)
 
 ## Verified
-49 automated checks pass: balances hand-calculated, month-boundary time zones (Nairobi), pending/rejected money excluded, an independent
-re-implementation of your equity/ownership SQL, every month balancing and chaining, every Excel formula recomputed against its cells,
-table column counts, page numbers, chart bounds, paging past 1,000 rows, partial failures, empty groups.
-NOT verified: how the PDF LOOKS (jsPDF could not be installed here, so layout was tested with a recording stand-in), and anything in a real browser.
-Please export one PDF and one Excel from real data and send them back so the layout can be tuned.
+16 checks (node tests/nav/nav.test.mjs, from the project root): redirect rules incl. "no loops" and "a page refresh never
+bounces an admin while the profile loads"; sidebar order; routes; member menu unchanged; tab lists for admins vs members;
+admin content still guarded by isAdmin; no remaining links to the moved tabs. Syntax, imports and undefined-name checks pass.
+NOT verified: how it looks in a browser (spacing of the sidebar items, the standalone pages' headers).
+On a phone, admins reach the new items through the menu drawer; the bottom bar is unchanged.

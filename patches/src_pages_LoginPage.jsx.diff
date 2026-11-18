@@ -1,0 +1,42 @@
+--- a/src/pages/LoginPage.jsx
++++ b/src/pages/LoginPage.jsx
+@@ -3,6 +3,7 @@
+ import { useNavigate } from 'react-router-dom'
+ import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
+ import toast from 'react-hot-toast'
++import ForgotPasswordForm from '../components/ForgotPasswordForm'
+ 
+ export default function LoginPage() {
+   const { signIn } = useAuth()
+@@ -12,6 +13,7 @@
+   const [showPass, setShowPass] = useState(false)
+   const [loading, setLoading] = useState(false)
+   const [error, setError] = useState('')
++  const [forgot, setForgot] = useState(false)
+ 
+   const handleSubmit = async (e) => {
+     e.preventDefault();
+@@ -75,6 +77,9 @@
+           <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, color: 'var(--text-primary)' }}>
+             Sign in to your account
+           </h2>
++          {forgot ? (
++            <ForgotPasswordForm onBack={() => setForgot(false)} />
++          ) : (
+           <form onSubmit={handleSubmit}>
+             <div className="form-group">
+               <label className="form-label">Email Address</label>
+@@ -127,7 +132,13 @@
+             <button type="submit" className="btn btn-primary btn-lg w-full" disabled={loading}>
+               {loading ? <><div className="spinner" style={{ width: 16, height: 16 }} /> Signing in…</> : 'Sign In'}
+             </button>
++            <div style={{ textAlign: 'center', marginTop: 14 }}>
++              <button type="button" onClick={() => setForgot(true)} style={{ background: 'none', border: 'none', color: 'var(--olive)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
++                Forgot password?
++              </button>
++            </div>
+           </form>
++          )}
+         </div>
+ 
+         {/* Members hint */}

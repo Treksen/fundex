@@ -1,6 +1,6 @@
 {
   "name": "fundex-savings",
-  "version": "1.5.1",
+  "version": "1.5.3",
   "type": "module",
   "private": true,
   "scripts": {
