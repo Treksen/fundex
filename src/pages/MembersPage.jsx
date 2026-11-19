@@ -1,9 +1,11 @@
 import MemberAvatar from '../components/MemberAvatar'
 import PageHeader from '../components/PageHeader'
+import MemberActionsModal from '../components/admin/MemberActionsModal'
+import { memberStatus } from '../lib/memberAdmin'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Award, AlertTriangle, AlertCircle, CheckCircle,
-  Edit2, Trash2, Save, X as XIcon, Star, TrendingUp, TrendingDown
+  Settings2, Star
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -26,17 +28,17 @@ export default function MembersPage() {
   const [reliability, setReliability] = useState([])
   const [loading, setLoading]         = useState(true)
   const [activeTab, setActiveTab]     = useState('equity')
-  const [editingId, setEditingId]     = useState(null)
-  const [editForm, setEditForm]       = useState({})
-  const [savingEdit, setSavingEdit]   = useState(false)
-  const [deletingId, setDeletingId]   = useState(null)
+  const [managing, setManaging]       = useState(null)   // admin tools for one member
+  const [accounts, setAccounts]       = useState({})     // id -> account fields (status, email) for the admin tools
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [equityRes, relRes] = await Promise.all([
+    const [equityRes, relRes, accRes] = await Promise.all([
       supabase.from('member_equity_summary').select('*'),
       supabase.from('member_reliability_scores').select('*'),
+      supabase.from('profiles').select('id, name, email, phone, role, avatar_url, is_active, login_disabled, must_change_password, deactivated_at, deactivation_reason'),
     ])
+    if (accRes.data) setAccounts(Object.fromEntries(accRes.data.map(a => [a.id, a])))
     if (equityRes.error) { toast.error('Failed to load members'); setLoading(false); return }
     if (equityRes.data) {
       const totalEquity = equityRes.data.reduce((s, m) => s + Math.max(0, Number(m.available_equity || 0)), 0)
@@ -55,42 +57,6 @@ export default function MembersPage() {
 
   const totalPool = members.reduce((s, m) => s + Math.max(0, Number(m.available_equity || 0)), 0)
   const overdrawns = members.filter(m => m.equity_status === 'overdrawn')
-
-  // ── Admin: edit ──────────────────────────────────────────────
-  const startEdit = (member) => {
-    setEditingId(member.id)
-    setEditForm({ name: member.name || '', role: member.role || 'member', phone: member.phone || '' })
-  }
-  const saveEdit = async () => {
-    if (!editForm.name?.trim()) { toast.error('Name cannot be empty'); return }
-    setSavingEdit(true)
-    const { error } = await supabase.from('profiles')
-      .update({ name: editForm.name.trim(), role: editForm.role, phone: editForm.phone || null, updated_at: new Date().toISOString() })
-      .eq('id', editingId)
-    if (error) { toast.error('Update failed: ' + error.message) }
-    else {
-      toast.success('Member updated')
-      await supabase.from('audit_logs').insert({ user_id: currentProfile.id, action: 'Admin updated member profile', table_name: 'profiles', record_id: editingId, change_type: 'update' })
-      setEditingId(null)
-      await fetchData()
-    }
-    setSavingEdit(false)
-  }
-
-  // ── Admin: delete ────────────────────────────────────────────
-  const handleDelete = async (memberId, memberName) => {
-    if (memberId === currentProfile?.id) { toast.error('You cannot delete your own account'); return }
-    if (!window.confirm(`Delete member "${memberName}"?\n\nThis will remove their profile. Transactions are preserved but unlinked.\n\nThis cannot be undone.`)) return
-    setDeletingId(memberId)
-    const { error } = await supabase.from('profiles').delete().eq('id', memberId)
-    if (error) { toast.error('Delete failed: ' + error.message) }
-    else {
-      toast.success(`${memberName} profile deleted.`)
-      await supabase.from('audit_logs').insert({ user_id: currentProfile.id, action: `Admin deleted member: ${memberName}`, table_name: 'profiles', record_id: memberId, change_type: 'delete' })
-      await fetchData()
-    }
-    setDeletingId(null)
-  }
 
   const barData = {
     labels: members.map(m => m.name?.split(' ')[0]),
@@ -154,11 +120,11 @@ export default function MembersPage() {
               const totalWithdrawals = Number(member.total_withdrawals || 0)
               const loanBalance = Number(member.loan_balance || 0)
               const rank = [...members].sort((a, b) => Number(b.ownership_pct) - Number(a.ownership_pct)).findIndex(m => m.id === member.id)
-              const isEditing = editingId === member.id
-              const isDeleting = deletingId === member.id
+              const account = accounts[member.id]
+              const accStatus = memberStatus(account)
 
               return (
-                <div key={member.id} className="card" style={{ borderColor: status === 'overdrawn' ? 'rgba(220,53,69,0.3)' : status === 'near_limit' ? 'rgba(230,144,10,0.3)' : 'var(--border)', borderWidth: status !== 'safe' ? 1.5 : 1, opacity: isDeleting ? 0.5 : 1 }}>
+                <div key={member.id} className="card" style={{ borderColor: status === 'overdrawn' ? 'rgba(220,53,69,0.3)' : status === 'near_limit' ? 'rgba(230,144,10,0.3)' : 'var(--border)', borderWidth: status !== 'safe' ? 1.5 : 1, opacity: accStatus.key === 'inactive' ? 0.7 : 1 }}>
                   {/* Top row */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -167,6 +133,7 @@ export default function MembersPage() {
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 15 }}>{member.name}</div>
                         <div className="text-xs text-muted">{member.role === 'admin' ? '👑 Admin' : 'Member'}</div>
+                        {accStatus.key !== 'active' && <span className={`badge ${accStatus.badge}`} style={{ marginTop: 3 }}>{accStatus.label}</span>}
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
@@ -177,33 +144,6 @@ export default function MembersPage() {
                     </div>
                   </div>
 
-                  {/* Admin inline edit */}
-                  {isAdmin && isEditing ? (
-                    <div style={{ background: 'rgba(58,77,181,0.04)', borderRadius: 8, padding: 12, marginBottom: 14 }}>
-                      <div className="form-group" style={{ marginBottom: 8 }}>
-                        <label className="form-label" style={{ fontSize: 11 }}>Full Name</label>
-                        <input className="form-input" value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} style={{ fontSize: 13 }} />
-                      </div>
-                      <div className="form-group" style={{ marginBottom: 8 }}>
-                        <label className="form-label" style={{ fontSize: 11 }}>Role</label>
-                        <select className="form-select" value={editForm.role} onChange={e => setEditForm(p => ({ ...p, role: e.target.value }))} style={{ fontSize: 13 }}>
-                          <option value="member">Member</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      </div>
-                      <div className="form-group" style={{ marginBottom: 10 }}>
-                        <label className="form-label" style={{ fontSize: 11 }}>Phone</label>
-                        <input className="form-input" value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} placeholder="+254…" style={{ fontSize: 13 }} />
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn btn-primary btn-sm" disabled={savingEdit} onClick={saveEdit} style={{ flex: 1, justifyContent: 'center' }}>
-                          {savingEdit ? <div className="spinner" style={{ width: 12, height: 12 }} /> : <><Save size={12} /> Save</>}
-                        </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setEditingId(null)}>Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
                       {/* Ownership ring */}
                       <div style={{ textAlign: 'center', marginBottom: 16 }}>
                         <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto 8px' }}>
@@ -246,20 +186,13 @@ export default function MembersPage() {
                           <div className="progress-fill" style={{ width: `${totalDeposits > 0 ? Math.min(100, (totalWithdrawals / totalDeposits) * 100) : 0}%`, background: status === 'overdrawn' ? 'var(--accent-red)' : status === 'near_limit' ? 'var(--accent-amber)' : getMemberColor(member.name) }} />
                         </div>
                       </div>
-                    </>
-                  )}
 
                   {/* Admin actions */}
-                  {isAdmin && !isEditing && (
+                  {isAdmin && account && member.id !== currentProfile?.id && (
                     <div className="row-actions" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                      <button className="btn-row-edit" style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => startEdit(member)}>
-                        <Edit2 size={11} /> Edit
+                      <button className="btn-row-edit" style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => setManaging(account)}>
+                        <Settings2 size={11} /> Manage
                       </button>
-                      {member.id !== currentProfile?.id && (
-                        <button className="btn-row-delete" style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 4 }} disabled={isDeleting} onClick={() => handleDelete(member.id, member.name)}>
-                          {isDeleting ? <div className="spinner" style={{ width: 10, height: 10 }} /> : <><Trash2 size={11} /> Delete</>}
-                        </button>
-                      )}
                     </div>
                   )}
                 </div>
@@ -373,6 +306,10 @@ export default function MembersPage() {
             </div></div>
           )}
         </div>
+      )}
+
+      {managing && (
+        <MemberActionsModal member={managing} me={currentProfile} onClose={() => setManaging(null)} onChanged={fetchData} />
       )}
     </div>
   )

@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { useAppUpdate, isStandaloneApp } from '../hooks/useAppUpdate'
 import { settingsRedirect, SECTION_TITLES } from '../lib/settingsSections'
 import { useSearchParams, useNavigate } from 'react-router-dom'
+import MemberManager from '../components/admin/MemberManager'
 
 export default function SettingsPage({ section } = {}) {
   const { profile, updateProfile, isAdmin } = useAuth();
@@ -425,7 +426,8 @@ export default function SettingsPage({ section } = {}) {
 
     try {
       // STEP 1: get users based on target
-      let query = supabase.from("profiles").select("id, role");
+      // deactivated members do not receive announcements (the database also skips them)
+      let query = supabase.from("profiles").select("id, role").eq("is_active", true);
 
       if (broadcastForm.target === "admins") {
         query = query.eq("role", "admin");
@@ -1653,6 +1655,9 @@ export default function SettingsPage({ section } = {}) {
 
       {activeTab === "admin" && isAdmin && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Manage members: details, roles, passwords, suspend, deactivate (migration 034 + admin-manage-member) */}
+          <MemberManager />
+
           {/* =============================== */}
           {/* 📣 BROADCAST NOTIFICATION */}
           {/* =============================== */}

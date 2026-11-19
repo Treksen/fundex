@@ -1,0 +1,30 @@
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -4,6 +4,7 @@
+ import AppShell from './components/AppShell'
+ import LoginPage from './pages/LoginPage'
+ import ResetPasswordPage from './pages/ResetPasswordPage'
++import ChangePasswordRequiredPage from './pages/ChangePasswordRequiredPage'
+ import DashboardPage from './pages/DashboardPage'
+ import TransactionsPage from './pages/TransactionsPage'
+ import MembersPage from './pages/MembersPage'
+@@ -21,14 +22,17 @@
+ import { UpdateProvider } from './hooks/useAppUpdate'
+ 
+ const ProtectedRoute = ({ children }) => {
+-  const { user, loading } = useAuth()
++  const { user, loading, mustChangePassword } = useAuth()
+   if (loading) return (
+     <div className="loading-page">
+       <div className="spinner" style={{ width: 40, height: 40 }} />
+       <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading Nitalink…</p>
+     </div>
+   )
+-  return user ? children : <Navigate to="/login" replace />
++  if (!user) return <Navigate to="/login" replace />
++  // An admin set a temporary password: the member must choose their own before using the app.
++  if (mustChangePassword) return <ChangePasswordRequiredPage />
++  return children
+ }
+ 
+ const PublicRoute = ({ children }) => {

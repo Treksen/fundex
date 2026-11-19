@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { accountGate, friendlySignInError, BLOCKED_MESSAGE } from "../lib/memberAdmin";
 
 const AuthContext = createContext({});
 
@@ -14,14 +15,24 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recovery, setRecovery] = useState(false); // true while a password-reset link is being used
+  const [blockedNotice, setBlockedNotice] = useState(""); // shown on the login page after a forced sign-out
+  const userIdRef = useRef(null);
 
   const fetchProfile = async (userId) => {
+    if (!userId) { setLoading(false); return; }
     try {
       const { data } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .maybeSingle();
+      // A suspended or deactivated member whose session is still alive is signed out here.
+      if (accountGate(data) === "blocked") {
+        setBlockedNotice(BLOCKED_MESSAGE);
+        setProfile(null);
+        await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+        return;
+      }
       setProfile(data || null);
     } catch (err) {
       console.error("fetchProfile failed:", err);
@@ -30,6 +41,18 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => { userIdRef.current = user?.id ?? null; }, [user]);
+
+  // Re-check the account when the app comes back to the foreground, so a suspended or deactivated member is
+  // signed out without waiting for their session to expire.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && userIdRef.current) fetchProfile(userIdRef.current);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   useEffect(() => {
     // Hard timeout — never spin more than 4 seconds
@@ -89,11 +112,12 @@ export const AuthProvider = ({ children }) => {
         return {
           data: null,
           error: {
-            message: error.message,
+            message: friendlySignInError(error.message),
           },
         };
       }
 
+      setBlockedNotice("");
       return { data, error: null };
     } catch (err) {
       console.error("Sign in failed:", err);
@@ -135,6 +159,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAdmin = profile?.role === "admin";
+  const mustChangePassword = accountGate(profile) === "must_change";
 
   return (
     <AuthContext.Provider
@@ -145,6 +170,9 @@ export const AuthProvider = ({ children }) => {
         isAdmin,
         recovery,
         clearRecovery: () => setRecovery(false),
+        mustChangePassword,
+        blockedNotice,
+        clearBlockedNotice: () => setBlockedNotice(""),
         signIn,
         signOut,
         updateProfile,

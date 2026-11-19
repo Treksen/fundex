@@ -4,11 +4,13 @@ import PageHeader from '../components/PageHeader'
 import Pagination from '../components/Pagination'
 import DocumentAttachments from '../components/DocumentAttachments'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus, Filter, Check, X, ChevronDown, ChevronUp, AlertCircle, Edit2, Trash2, ShieldCheck, Clock } from 'lucide-react'
+import { Plus, Filter, Check, X, ChevronDown, ChevronUp, AlertCircle, Edit2, Trash2, ShieldCheck, Clock, Smartphone } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrency, formatDateTime, getMemberColor } from '../lib/utils'
 import AddTransactionModal from '../components/transactions/AddTransactionModal'
+import MpesaPayModal from '../components/transactions/MpesaPayModal'
+import { mpesaEnabled } from '../lib/mpesa'
 import toast from 'react-hot-toast'
 import { useSearchParams } from 'react-router-dom'
 
@@ -23,6 +25,7 @@ export default function TransactionsPage() {
   const [approvals, setApprovals] = useState({})
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [showMpesa, setShowMpesa] = useState(false)
   const [filter, setFilter] = useState({ type: '', status: '', member: '' })
   const [members, setMembers] = useState([])
   const [expandedRows, setExpandedRows] = useState({})
@@ -670,6 +673,11 @@ export default function TransactionsPage() {
         onRefresh={fetchData}
         loading={loading}
       >
+        {mpesaEnabled() && (
+          <button className="btn btn-secondary" onClick={() => setShowMpesa(true)}>
+            <Smartphone size={15} /> Pay with M-Pesa
+          </button>
+        )}
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
           <Plus size={15} /> Add Transaction
         </button>
@@ -1015,6 +1023,11 @@ export default function TransactionsPage() {
                                 <span style={{ color: 'var(--text-muted)', fontSize: 10, fontFamily: 'inherit', fontWeight: 400 }}>Deposit: </span>
                                 {tx.reference || <span style={{ color: 'var(--text-muted)' }}>—</span>}
                               </span>
+                              {tx.mpesa_request_id && (
+                                <span title="Paid with M-Pesa in the app: the code came from KCB, not typed by hand" style={{ color: 'var(--accent-emerald)', fontSize: 10, fontFamily: 'var(--font-main)' }}>
+                                  ✓ Paid in app (M-Pesa confirmed)
+                                </span>
+                              )}
                               {tx.type === 'deposit' && (
                                 <span title="Bank-side verification code added by admin">
                                   <span style={{ color: 'var(--text-muted)', fontSize: 10, fontFamily: 'inherit', fontWeight: 400 }}>Bank: </span>
@@ -1783,6 +1796,7 @@ export default function TransactionsPage() {
                                 <div className="mobile-tx-card-ref-line" title={tx.reference}>
                                   <span className="mobile-tx-card-ref-label">Dep:</span>{' '}
                                   <span className="mobile-tx-card-ref-value">{tx.reference}</span>
+                                  {tx.mpesa_request_id && <span style={{ color: 'var(--accent-emerald)', marginLeft: 4 }} title="Paid with M-Pesa in the app">✓ app</span>}
                                 </div>
                               )}
                               {tx.bank_verification_code && (
@@ -2233,6 +2247,7 @@ export default function TransactionsPage() {
           onSuccess={fetchData}
         />
       )}
+      {showMpesa && <MpesaPayModal onClose={() => setShowMpesa(false)} onDone={fetchData} />}
     </div>
   );
 }

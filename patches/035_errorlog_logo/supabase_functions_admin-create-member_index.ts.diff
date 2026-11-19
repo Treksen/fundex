@@ -1,0 +1,17 @@
+--- a/supabase/functions/admin-create-member/index.ts
++++ b/supabase/functions/admin-create-member/index.ts
+@@ -34,7 +34,13 @@
+       user_id: adminId, action: `Admin registered new user: ${name} (${role})`, table_name: "profiles", record_id: memberId, change_type: "create",
+     });
+   },
+-  log: (m) => console.error(m),
++  log: (m) => {
++    console.error(m);
++    // Also into the app's Error Log. Messages never contain passwords (covered by the security tests).
++    admin.from("error_logs").insert({
++      severity: "error", source: "edge_function", context: "admin-create-member", message: String(m).slice(0, 500),
++    }).then(({ error }) => { if (error) console.error("error_logs insert failed:", error.message); });
++  },
+ };
+ 
+ serve((req) => handle(req, deps));

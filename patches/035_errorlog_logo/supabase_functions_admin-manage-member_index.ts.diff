@@ -1,0 +1,17 @@
+--- a/supabase/functions/admin-manage-member/index.ts
++++ b/supabase/functions/admin-manage-member/index.ts
+@@ -69,7 +69,13 @@
+     if (error) console.error("audit failed:", error.message);
+   },
+   randomBytes: (n) => crypto.getRandomValues(new Uint8Array(n)),
+-  log: (m) => console.error(m),
++  log: (m) => {
++    console.error(m);
++    // Also into the app's Error Log. Messages never contain passwords (covered by the security tests).
++    admin.from("error_logs").insert({
++      severity: "error", source: "edge_function", context: "admin-manage-member", message: String(m).slice(0, 500),
++    }).then(({ error }) => { if (error) console.error("error_logs insert failed:", error.message); });
++  },
+ };
+ 
+ serve((req) => handle(req, deps));

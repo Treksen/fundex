@@ -1,0 +1,32 @@
+--- a/src/styles/main.css
++++ b/src/styles/main.css
+@@ -92,8 +92,7 @@
+ 
+ .logo-icon img {
+   width: 100%; height: 100%;
+-  object-fit: cover;
+-  border-radius: 9px;
++  object-fit: contain;
+   display: block;
+ }
+ 
+@@ -200,7 +199,7 @@
+ .topbar-logo { display: none; }
+ @media (max-width: 768px) {
+   .topbar-logo { display: flex; align-items: center; gap: 8px; }
+-  .topbar-logo img { width: 28px; height: 28px; border-radius: 7px; object-fit: cover; }
++  .topbar-logo img { width: 28px; height: 28px; object-fit: contain; }
+   .topbar-logo span { font-size: 14px; font-weight: 700; color: var(--navy); }
+ }
+ 
+@@ -1453,3 +1452,10 @@
+     text-align: center;
+   }
+ }
++
++/* ── Brand logo: transparent mark, light-ring version in dark mode (BrandLogo.jsx) ── */
++.brand-logo { vertical-align: middle; }
++.brand-logo.brand-logo-dark { display: none; }
++[data-theme="dark"] .brand-logo.brand-logo-light { display: none; }
++[data-theme="dark"] .brand-logo.brand-logo-dark { display: inline-block; }
++[data-theme="dark"] .logo-icon .brand-logo.brand-logo-dark { display: block; }

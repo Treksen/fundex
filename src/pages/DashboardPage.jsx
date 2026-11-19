@@ -1,7 +1,7 @@
 import MemberAvatar from '../components/MemberAvatar'
 import PageHeader from '../components/PageHeader'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { TrendingUp, Wallet, Users, ArrowDownRight, Plus, AlertCircle, ShieldCheck } from 'lucide-react'
+import { TrendingUp, Wallet, Users, ArrowDownRight, Plus, AlertCircle, ShieldCheck, Smartphone } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrency, formatDate, formatPercentage, getMemberColor } from '../lib/utils'
@@ -11,6 +11,8 @@ import {
   Title, Tooltip, Legend, ArcElement, Filler
 } from 'chart.js'
 import AddTransactionModal from '../components/transactions/AddTransactionModal'
+import MpesaPayModal from '../components/transactions/MpesaPayModal'
+import { mpesaEnabled } from '../lib/mpesa'
 import InsightsPanel from '../components/InsightsPanel'
 import GroupHealthScore from '../components/GroupHealthScore'
 import { useNavigate } from 'react-router-dom'
@@ -33,6 +35,7 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddTx, setShowAddTx] = useState(false);
+  const [showMpesa, setShowMpesa] = useState(false);
 
   // Verification queue stats — populated on mount + on every
   // realtime change. Visible to everyone (members are eligible
@@ -421,6 +424,11 @@ export default function DashboardPage() {
         onRefresh={fetchAll}
         loading={loading}
       >
+        {mpesaEnabled() && (
+          <button className="btn btn-secondary" onClick={() => setShowMpesa(true)}>
+            <Smartphone size={15} /> Pay with M-Pesa
+          </button>
+        )}
         <button className="btn btn-primary" onClick={() => setShowAddTx(true)}>
           <Plus size={15} /> Transact
         </button>
@@ -833,6 +841,7 @@ export default function DashboardPage() {
           onSuccess={fetchAll}
         />
       )}
+      {showMpesa && <MpesaPayModal onClose={() => setShowMpesa(false)} onDone={fetchAll} />}
     </div>
   );
 }

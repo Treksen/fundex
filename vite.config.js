@@ -88,7 +88,7 @@ export default defineConfig({
         clientsClaim: BRIDGE_RELEASE,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpeg,jpg,webp,woff2}"],
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackDenylist: [/^\/api/, /^\/m\//],   // /m/<code> is the M-Pesa callback (forwarded to Supabase by vercel.json)
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,

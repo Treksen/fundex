@@ -1,0 +1,19 @@
+--- a/src/pages/LoginPage.jsx
++++ b/src/pages/LoginPage.jsx
+@@ -4,6 +4,7 @@
+ import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
+ import toast from 'react-hot-toast'
+ import ForgotPasswordForm from '../components/ForgotPasswordForm'
++import BrandLogo from '../components/BrandLogo'
+ 
+ export default function LoginPage() {
+   const { signIn, blockedNotice } = useAuth()
+@@ -62,7 +63,7 @@
+         {/* Logo */}
+         <div className="text-center mb-8">
+           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+-            <img src="/logo-tile.svg" alt="Nitalink" style={{ width: 72, height: 72 }} />
++            <BrandLogo size={72} theme="light" />
+           </div>
+           <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.4px' }}>
+             Nitalink

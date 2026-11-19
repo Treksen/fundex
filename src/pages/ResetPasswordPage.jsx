@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { completePasswordReset, waitForRecovery } from '../lib/passwordReset'
 import { MIN_PASSWORD } from '../lib/passwordRules'
+import BrandLogo from '../components/BrandLogo'
 
 // Where the emailed reset link lands. Works signed out (the link signs the member in temporarily).
 export default function ResetPasswordPage() {
@@ -36,7 +37,7 @@ export default function ResetPasswordPage() {
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
       <div className="card" style={{ width: '100%', maxWidth: 420, padding: 28 }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
-          <img src="/logo-tile.svg" alt="Nitalink" style={{ width: 56, height: 56 }} />
+          <BrandLogo size={56} />
           <h1 style={{ margin: '10px 0 0', fontSize: 22 }}>Set a new password</h1>
         </div>
 

@@ -1,0 +1,28 @@
+--- a/src/pages/LoginPage.jsx
++++ b/src/pages/LoginPage.jsx
+@@ -6,7 +6,7 @@
+ import ForgotPasswordForm from '../components/ForgotPasswordForm'
+ 
+ export default function LoginPage() {
+-  const { signIn } = useAuth()
++  const { signIn, blockedNotice } = useAuth()
+   const navigate = useNavigate()
+   const [email, setEmail] = useState('')
+   const [password, setPassword] = useState('')
+@@ -119,13 +119,13 @@
+               </div>
+             </div>
+ 
+-            {error && (
+-              <div style={{
++            {(error || blockedNotice) && (
++              <div role="alert" style={{
+                 background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                 borderRadius: 8, padding: '10px 14px', marginBottom: 16,
+                 fontSize: 13, color: 'var(--accent-red)'
+               }}>
+-                {error}
++                {error || blockedNotice}
+               </div>
+             )}
+ 

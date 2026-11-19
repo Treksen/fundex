@@ -1,0 +1,35 @@
+--- a/src/components/AppShell.jsx
++++ b/src/components/AppShell.jsx
+@@ -1,4 +1,5 @@
+ import MemberAvatar from './MemberAvatar'
++import BrandLogo from './BrandLogo'
+ import UpdateBanner from './UpdateBanner'
+ import { useAppUpdate } from '../hooks/useAppUpdate'
+ import { useState, useEffect } from 'react'
+@@ -179,7 +180,7 @@
+       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+         <div className="sidebar-logo">
+           <div className="logo-mark">
+-            <div className="logo-icon"><img src="/logo-tile.svg" alt="Nitalink" /></div>
++            <div className="logo-icon"><BrandLogo /></div>
+             <div className="logo-text">
+               <span className="logo-name">Nitalink</span>
+               <span className="logo-tagline">Savings & Investment</span>
+@@ -248,7 +249,7 @@
+               {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+             </button>
+             <div className="topbar-logo">
+-              <img src="/logo-tile.svg" alt="Nitalink" />
++              <BrandLogo />
+               <span>Nitalink</span>
+             </div>
+             <h1 className="topbar-title">{getPageTitle()}</h1>
+@@ -320,7 +321,7 @@
+       {/* PWA INSTALL BANNER */}
+       <div className={`pwa-install-banner ${showInstallBanner ? 'visible' : ''}`}>
+         <div style={{ width: 40, height: 40, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+-          <img src="/logo-tile.svg" alt="Nitalink" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
++          <BrandLogo style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+         </div>
+         <div className="pwa-install-banner-text">
+           <div className="pwa-install-banner-title">Install Nitalink App</div>

@@ -69,7 +69,8 @@ serve(async () => {
 
   const { data: users, error: userErr } = await supabase
     .from("profiles")
-    .select("id, email, name");
+    .select("id, email, name")
+    .eq("is_active", true);   // deactivated members get no reminders (migration 034)
 
   if (userErr) {
     console.error("USER FETCH ERROR:", userErr);
@@ -145,7 +146,8 @@ async function runStalenessNudges(supabase: any): Promise<number> {
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, name, role");
+    .select("id, name, role")
+    .eq("is_active", true);
   if (!profiles) return 0;
 
   let totalSent = 0;

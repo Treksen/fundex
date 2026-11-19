@@ -1,0 +1,30 @@
+--- a/src/components/transactions/AddTransactionModal.jsx
++++ b/src/components/transactions/AddTransactionModal.jsx
+@@ -39,7 +39,7 @@
+   }, [form.user_id, form.type])
+ 
+   const fetchMembers = async () => {
+-    const { data } = await supabase.from('profiles').select('id, name, role')
++    const { data } = await supabase.from('profiles').select('id, name, role, is_active')
+     if (data) setMembers(data)
+   }
+ 
+@@ -176,7 +176,8 @@
+ 
+     // Create withdrawal approval requests for ALL other members
+     if (form.type === 'withdrawal') {
+-      const otherMembers = members.filter(m => m.id !== form.user_id)
++      // deactivated members no longer vote (the database also skips them)
++      const otherMembers = members.filter(m => m.id !== form.user_id && m.is_active !== false)
+       if (otherMembers.length > 0) {
+         const { error: approvalError } = await supabase.from('withdrawal_approvals').insert(
+           otherMembers.map(m => ({
+@@ -389,7 +390,7 @@
+               >
+                 <option value="">Select member…</option>
+                 {members.map(m => (
+-                  <option key={m.id} value={m.id}>{m.name}{m.role === 'admin' ? ' (Admin)' : ''}</option>
++                  <option key={m.id} value={m.id}>{m.name}{m.role === 'admin' ? ' (Admin)' : ''}{m.is_active === false ? ' (deactivated)' : ''}</option>
+                 ))}
+               </select>
+             </div>
