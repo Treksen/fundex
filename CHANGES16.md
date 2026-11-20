@@ -1,4 +1,4 @@
-# Transparent app icons, bigger mark
+# Transparent app icons, bigger mark (updated: rings larger, thicker and brighter)
 
 No database or function changes. Bump the version and deploy as usual.
 
@@ -9,7 +9,9 @@ No database or function changes. Bump the version and deploy as usual.
   as large as Android's safe zone allows (checked: nothing gets cut off).
 - `public/icons/apple-touch-icon.png` and `public/apple-touch-icon.png`: white background on purpose: iPhones fill
   transparency with black. Mark enlarged.
-- `vite.config.js` (manifest) and `index.html`: point to the new icons with `?v=2`, so installed apps notice the change.
+- Rings now fill the icon edge to edge (98% width on transparent icons), slightly thicker, colours brightened:
+  green #4A7018 -> #5C9420, blue #1B1F7A -> #2A30A0 (app icons only; the in-app logo and favicon are unchanged).
+- `vite.config.js` (manifest) and `index.html`: point to the new icons with `?v=3`, so installed apps notice the change.
 
 Already-installed apps may keep the old icon for a while (the phone/computer caches it). Chrome usually updates
 within a day or two after the next visit; on iPhone, removing and re-adding to the home screen shows it immediately.
