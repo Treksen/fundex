@@ -58,11 +58,14 @@ current project folder WITHOUT `node_modules` and WITHOUT `.env.local`.
 ## Waiting on the owner
 - Monthly report email: send day/time, summary+link vs PDF attachment, can members opt out.
 - Reports: export one real PDF and Excel so the layout can be tuned (layout never seen rendered).
-- M-Pesa STK push BUILT (CHANGES15, migration 035, functions mpesa-stk-push + mpesa-callback --no-verify-jwt,
-  button hidden unless VITE_MPESA_ENABLED=true). Owner decisions: admin still verifies M-Pesa deposits; members pay
-  for themselves, admins for anyone; profile phone pre-filled and editable; no extra limits. Owner has a Buni sandbox
-  app "Nitalink" subscribed to MpesaExpressAPIService (+ optionally InstantPaymentNotification). Open questions for
-  the sandbox test: invoiceNumber 12-char limit (swagger) vs 30 (PDF); token URL (PDF uat.../token vs portal
-  accounts.buni.kcbgroup.com/oauth2/token); callbackUrl 50-char limit (short form https://finance.geotreks.co.ke/m/<16>);
-  PDF says paybill 522533. Next possible step: KCB Instant Payment Notification for payments made from the M-Pesa menu.
+- M-Pesa STK push BUILT and TESTED end to end on 19 Nov (CHANGES15, migration 035 run, functions mpesa-stk-push +
+  mpesa-callback --no-verify-jwt deployed, sandbox keys set as Supabase secrets, MPESA_CALLBACK_BASE=
+  https://finance.geotreks.co.ke/m (Vercel forwards /m/<secret> to the callback; verified). Button hidden on the live
+  site (no VITE_MPESA_ENABLED in Vercel); visible on localhost via .env.local. Owner decisions: admin still verifies
+  M-Pesa deposits; members pay for themselves, admins for anyone; profile phone pre-filled and editable; no extra limits.
+  NEXT: owner sends signed go-live letter to buni@kcbgroup.com and asks: paybill members see (PDF says 522533),
+  invoiceNumber limit (swagger 12 vs PDF 30; MPESA_INVOICE_MAX), production token + STK URLs. Then: production keys
+  as secrets + KCB_TOKEN_URL/KCB_STK_URL, VITE_MPESA_ENABLED=true in Vercel + redeploy, live KES 1 test.
+  Order lesson: only point MPESA_CALLBACK_BASE at the website after the site with vercel.json is deployed.
+  Optional next: admin page listing app payments / needs_review; KCB Instant Payment Notification for menu payments.
 - Trademark/name check for "Nitalink" in Kenya before investing in branding.
